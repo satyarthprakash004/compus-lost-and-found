@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register — FoundIt</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body class="auth-page">
+<div class="auth-split">
+  <div class="auth-left">
+    <a href="/" class="logo">Found<span>It</span></a>
+    <div class="auth-tagline">
+      <h2>Join your campus community.</h2>
+      <p>Help others find what they've lost — and get your own things back.</p>
+    </div>
+    <div class="auth-deco">JOIN</div>
+  </div>
+  <div class="auth-right">
+    <div class="auth-form-wrap">
+      <h1>Create Account</h1>
+      <p class="auth-sub">Already registered? <a href="/login.html">Sign in</a></p>
+      <div id="alertBox" class="alert hidden"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input type="text" id="name" placeholder="Rahul Sharma"/>
+        </div>
+        <div class="form-group">
+          <label>Roll Number</label>
+          <input type="text" id="rollNumber" placeholder="CS2021001"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>College Email *</label>
+        <input type="email" id="email" placeholder="you@college.edu"/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Department</label>
+          <select id="department">
+            <option value="">Select dept.</option>
+            <option>Computer Science</option>
+            <option>Electronics</option>
+            <option>Mechanical</option>
+            <option>Civil</option>
+            <option>Chemical</option>
+            <option>MBA</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Year</label>
+          <select id="year">
+            <option value="">Select year</option>
+            <option>1st Year</option>
+            <option>2nd Year</option>
+            <option>3rd Year</option>
+            <option>4th Year</option>
+            <option>PG / PhD</option>
+            <option>Faculty</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="tel" id="phone" placeholder="9876543210"/>
+      </div>
+      <div class="form-group">
+        <label>Password *</label>
+        <div class="input-eye">
+          <input type="password" id="password" placeholder="Min 6 characters"/>
+          <button type="button" class="eye-btn" onclick="togglePassword('password')">👁</button>
+        </div>
+      </div>
+      <button class="btn-primary full" id="regBtn" onclick="handleRegister()">Create Account</button>
+    </div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+async function handleRegister() {
+  const btn = document.getElementById('regBtn');
+  const body = {
+    name:       document.getElementById('name').value.trim(),
+    email:      document.getElementById('email').value.trim(),
+    password:   document.getElementById('password').value,
+    rollNumber: document.getElementById('rollNumber').value.trim(),
+    department: document.getElementById('department').value,
+    year:       document.getElementById('year').value,
+    phone:      document.getElementById('phone').value.trim(),
+  };
+  if (!body.name || !body.email || !body.password)
+    return showAlert('Name, email and password are required.', 'error');
+  btn.textContent = 'Creating…'; btn.disabled = true;
+  const res = await api.post('/api/auth/register', body);
+  if (res.success) {
+    window.location.href = '/';
+  } else {
+    showAlert(res.message, 'error');
+    btn.textContent = 'Create Account'; btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

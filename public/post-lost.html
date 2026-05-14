@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Report Lost Item — FoundIt</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="/" class="logo">Found<span>It</span></a>
+    <div class="nav-links">
+      <a href="/#browse-lost" class="active">Lost Items</a>
+      <a href="/#browse-found">Found Items</a>
+      <a href="/devices.html">IMEI Block</a>
+      <a href="/fir.html">FIR Report</a>
+    </div>
+    <div class="nav-actions">
+      <div id="authButtons"><a href="/login.html" class="btn-ghost">Login</a><a href="/register.html" class="btn-primary">Join</a></div>
+      <div id="userMenu" class="user-menu hidden">
+        <button class="avatar-btn" id="avatarBtn"><span id="avatarInitial">U</span></button>
+        <div class="dropdown" id="dropdown"><a href="/dashboard.html">My Dashboard</a><a href="#" id="logoutBtn">Logout</a></div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="page-header-inner">
+    <h1>Report a Lost Item</h1>
+    <p>Fill in as much detail as possible. The more you share, the easier it is for someone to recognize and return your item.</p>
+  </div>
+</div>
+
+<div class="post-form-page">
+  <div id="alertBox" class="alert hidden"></div>
+  <div class="form-card">
+    <h2>Item Details</h2>
+    <div class="form-group">
+      <label>Title *</label>
+      <input type="text" id="title" placeholder='e.g. "Black iPhone 14 Pro" or "Blue Jansport Backpack"'/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Category *</label>
+        <select id="category">
+          <option value="">Select category</option>
+          <option value="gadget">📱 Gadget (Phone, Laptop…)</option>
+          <option value="document">📄 Document / ID Card</option>
+          <option value="clothing">👕 Clothing</option>
+          <option value="bag">🎒 Bag / Wallet</option>
+          <option value="keys">🔑 Keys</option>
+          <option value="person">🧑 Missing Person</option>
+          <option value="other">📦 Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date Lost *</label>
+        <input type="date" id="dateLost"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Location Lost *</label>
+      <input type="text" id="locationLost" placeholder="e.g. Library 2nd floor, Canteen, Main Gate…"/>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="description" placeholder="Describe the item — colour, brand, any unique marks, what was inside (bag), etc."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Reward (optional)</label>
+      <input type="text" id="reward" placeholder='e.g. "₹500 reward on return"'/>
+    </div>
+    <div class="form-group">
+      <label>Extra Contact Info (optional)</label>
+      <input type="text" id="contactInfo" placeholder="WhatsApp number, email, hostel room…"/>
+    </div>
+    <div class="form-group">
+      <label>Upload Photo (optional)</label>
+      <div class="img-upload-box" onclick="document.getElementById('imageFile').click()">
+        <div style="font-size:32px">📷</div>
+        <p>Click to upload a photo of the item</p>
+        <input type="file" id="imageFile" accept="image/*" style="display:none" onchange="previewImg(this)"/>
+      </div>
+      <img id="imgPreview" class="img-preview hidden" alt="preview"/>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:8px;">
+      <button class="btn-primary" id="submitBtn" onclick="handleSubmit()">Post Lost Item</button>
+      <a href="/" class="btn-outline">Cancel</a>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+// Set today as default date
+document.getElementById('dateLost').valueAsDate = new Date();
+
+function previewImg(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const preview = document.getElementById('imgPreview');
+  preview.src = URL.createObjectURL(file);
+  preview.classList.remove('hidden');
+}
+
+async function handleSubmit() {
+  if (!requireAuth()) return;
+  const btn = document.getElementById('submitBtn');
+  const fd = new FormData();
+  fd.append('title',       document.getElementById('title').value.trim());
+  fd.append('category',    document.getElementById('category').value);
+  fd.append('dateLost',    document.getElementById('dateLost').value);
+  fd.append('locationLost',document.getElementById('locationLost').value.trim());
+  fd.append('description', document.getElementById('description').value.trim());
+  fd.append('reward',      document.getElementById('reward').value.trim());
+  fd.append('contactInfo', document.getElementById('contactInfo').value.trim());
+  const imgFile = document.getElementById('imageFile').files[0];
+  if (imgFile) fd.append('image', imgFile);
+
+  if (!fd.get('title') || !fd.get('category') || !fd.get('locationLost') || !fd.get('dateLost'))
+    return showAlert('Please fill in Title, Category, Location and Date.', 'error');
+
+  btn.textContent = 'Posting…'; btn.disabled = true;
+  const res = await api.postForm('/api/lost', fd);
+  if (res.success) {
+    showAlert('Lost item posted successfully!', 'success');
+    setTimeout(() => window.location.href = '/dashboard.html', 1200);
+  } else {
+    showAlert(res.message, 'error');
+    btn.textContent = 'Post Lost Item'; btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

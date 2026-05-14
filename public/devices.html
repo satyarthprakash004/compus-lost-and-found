@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IMEI Block — FoundIt</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="/" class="logo">Found<span>It</span></a>
+    <div class="nav-links">
+      <a href="/#browse-lost">Lost Items</a>
+      <a href="/#browse-found">Found Items</a>
+      <a href="/devices.html" class="active">IMEI Block</a>
+      <a href="/fir.html">FIR Report</a>
+    </div>
+    <div class="nav-actions">
+      <div id="authButtons"><a href="/login.html" class="btn-ghost">Login</a><a href="/register.html" class="btn-primary">Join</a></div>
+      <div id="userMenu" class="user-menu hidden">
+        <button class="avatar-btn" id="avatarBtn"><span id="avatarInitial">U</span></button>
+        <div class="dropdown" id="dropdown"><a href="/dashboard.html">My Dashboard</a><a href="#" id="logoutBtn">Logout</a></div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="page-header-inner">
+    <h1>📵 Device IMEI Blocker</h1>
+    <p>Lost your phone or laptop? Block it by IMEI so others can check if a device is stolen before buying.</p>
+  </div>
+</div>
+
+<div class="tool-page">
+  <div id="alertBox" class="alert hidden"></div>
+
+  <!-- CHECK IMEI -->
+  <div class="check-box">
+    <h3>🔍 Check if an IMEI is Blocked</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Anyone can check if a device is reported stolen. No login needed.</p>
+    <div class="check-row">
+      <input type="text" id="checkImei" placeholder="Enter 15-digit IMEI number" maxlength="20"/>
+      <button class="btn-primary" onclick="checkImei()">Check</button>
+    </div>
+    <div id="checkResult" class="hidden"></div>
+  </div>
+
+  <!-- BLOCK DEVICE FORM -->
+  <div class="form-card">
+    <h2>Block a Device</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">Login required. Your name and roll number will be associated with this report.</p>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Device Type *</label>
+        <select id="deviceType">
+          <option value="">Select type</option>
+          <option value="mobile">📱 Mobile Phone</option>
+          <option value="laptop">💻 Laptop</option>
+          <option value="tablet">📟 Tablet</option>
+          <option value="other">📦 Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Brand</label>
+        <input type="text" id="brand" placeholder="Samsung, Apple, Dell…"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Model</label>
+      <input type="text" id="model" placeholder="iPhone 14 Pro, Galaxy S23…"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>IMEI Number <span style="color:var(--muted);font-weight:400">(phones/tablets)</span></label>
+        <input type="text" id="imeiNumber" placeholder="15-digit IMEI" maxlength="20"/>
+        <small style="color:var(--muted);font-size:12px;">Dial *#06# to get IMEI</small>
+      </div>
+      <div class="form-group">
+        <label>Serial Number <span style="color:var(--muted);font-weight:400">(laptops)</span></label>
+        <input type="text" id="serialNumber" placeholder="Serial / Service tag"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Reason / Details</label>
+      <textarea id="reason" placeholder="Describe how you lost it, when, where…"></textarea>
+    </div>
+    <div style="display:flex;gap:12px;">
+      <button class="btn-primary" id="blockBtn" onclick="blockDevice()">Block Device</button>
+      <a href="/dashboard.html" class="btn-outline">View My Devices</a>
+    </div>
+  </div>
+
+  <!-- PUBLIC LIST -->
+  <div style="margin-top:40px;">
+    <h2 style="font-family:var(--font-head);font-size:22px;font-weight:700;margin-bottom:20px;">Blocked Devices on Campus</h2>
+    <div id="deviceList"><div class="loading-state">Loading…</div></div>
+  </div>
+</div>
+
+<footer class="footer" style="margin-top:40px;">
+  <div class="footer-bottom" style="max-width:800px;margin:0 auto;">FoundIt — Campus Lost &amp; Found</div>
+</footer>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+async function checkImei() {
+  const imei = document.getElementById('checkImei').value.trim();
+  if (!imei) return showAlert('Please enter an IMEI number.', 'error');
+  const d = await api.get(`/api/devices/check/${imei}`);
+  const el = document.getElementById('checkResult');
+  el.className = `check-result ${d.blocked ? 'danger' : 'safe'}`;
+  el.textContent = d.message;
+  el.classList.remove('hidden');
+}
+
+async function blockDevice() {
+  if (!requireAuth()) return;
+  const btn = document.getElementById('blockBtn');
+  const body = {
+    deviceType:   document.getElementById('deviceType').value,
+    brand:        document.getElementById('brand').value.trim(),
+    model:        document.getElementById('model').value.trim(),
+    imeiNumber:   document.getElementById('imeiNumber').value.trim(),
+    serialNumber: document.getElementById('serialNumber').value.trim(),
+    reason:       document.getElementById('reason').value.trim(),
+  };
+  if (!body.deviceType) return showAlert('Select a device type.', 'error');
+  if (!body.imeiNumber && !body.serialNumber) return showAlert('Enter IMEI or Serial number.', 'error');
+
+  btn.textContent = 'Blocking…'; btn.disabled = true;
+  const res = await api.post('/api/devices', body);
+  showAlert(res.message, res.success ? 'success' : 'error');
+  if (res.success) { loadPublicDevices(); }
+  btn.textContent = 'Block Device'; btn.disabled = false;
+}
+
+async function loadPublicDevices() {
+  const el = document.getElementById('deviceList');
+  const d = await api.get('/api/devices');
+  if (!d.success || !d.devices.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">✅</div><p>No blocked devices reported yet.</p></div>`; return;
+  }
+  el.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+      <thead>
+        <tr style="background:var(--cream);text-align:left;">
+          <th style="padding:10px 14px;border-bottom:1px solid var(--border);">Device</th>
+          <th style="padding:10px 14px;border-bottom:1px solid var(--border);">IMEI</th>
+          <th style="padding:10px 14px;border-bottom:1px solid var(--border);">Reported By</th>
+          <th style="padding:10px 14px;border-bottom:1px solid var(--border);">Date</th>
+          <th style="padding:10px 14px;border-bottom:1px solid var(--border);">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${d.devices.map(dev => `
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:10px 14px;">${dev.brand||''} ${dev.model||dev.deviceType}</td>
+            <td style="padding:10px 14px;font-family:monospace;">${dev.imeiNumber||'—'}</td>
+            <td style="padding:10px 14px;">${dev.reportedBy?.name||'—'}</td>
+            <td style="padding:10px 14px;">${fmtDate(dev.createdAt)}</td>
+            <td style="padding:10px 14px;"><span class="badge badge-lost">${dev.status}</span></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+loadPublicDevices();
+</script>
+</body>
+</html>

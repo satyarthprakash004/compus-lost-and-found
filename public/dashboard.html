@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — FoundIt</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="/" class="logo">Found<span>It</span></a>
+    <div class="nav-links">
+      <a href="/#browse-lost">Lost Items</a>
+      <a href="/#browse-found">Found Items</a>
+      <a href="/devices.html">IMEI Block</a>
+      <a href="/fir.html">FIR Report</a>
+    </div>
+    <div class="nav-actions">
+      <div id="authButtons"><a href="/login.html" class="btn-ghost">Login</a><a href="/register.html" class="btn-primary">Join</a></div>
+      <div id="userMenu" class="user-menu hidden">
+        <button class="avatar-btn" id="avatarBtn"><span id="avatarInitial">U</span></button>
+        <div class="dropdown" id="dropdown"><a href="/dashboard.html">My Dashboard</a><a href="#" id="logoutBtn">Logout</a></div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="dashboard-wrap">
+  <div class="dash-header">
+    <h1 id="dashTitle">My Dashboard</h1>
+    <p id="dashSub">Manage your lost &amp; found posts, matches, FIR reports, and blocked devices.</p>
+  </div>
+
+  <div id="alertBox" class="alert hidden"></div>
+
+  <div class="dash-tabs">
+    <div class="dash-tab active" onclick="switchTab('lost')">Lost Posts</div>
+    <div class="dash-tab" onclick="switchTab('found')">Found Posts</div>
+    <div class="dash-tab" onclick="switchTab('matches')">My Matches</div>
+    <div class="dash-tab" onclick="switchTab('fir')">FIR Reports</div>
+    <div class="dash-tab" onclick="switchTab('devices')">Blocked Devices</div>
+  </div>
+
+  <!-- LOST POSTS -->
+  <div class="dash-panel active" id="panel-lost">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <span style="font-weight:600;color:var(--muted);font-size:14px;">Your lost item posts</span>
+      <a href="/post-lost.html" class="btn-primary small" style="padding:8px 16px;font-size:13px;">+ New Post</a>
+    </div>
+    <div id="myLostList"><div class="loading-state">Loading…</div></div>
+  </div>
+
+  <!-- FOUND POSTS -->
+  <div class="dash-panel" id="panel-found">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <span style="font-weight:600;color:var(--muted);font-size:14px;">Items you've reported as found</span>
+      <a href="/post-found.html" class="btn-primary small" style="padding:8px 16px;font-size:13px;">+ New Post</a>
+    </div>
+    <div id="myFoundList"><div class="loading-state">Loading…</div></div>
+  </div>
+
+  <!-- MATCHES -->
+  <div class="dash-panel" id="panel-matches">
+    <p style="font-size:14px;color:var(--muted);margin-bottom:20px;">Match requests you've sent or received.</p>
+    <div id="myMatchList"><div class="loading-state">Loading…</div></div>
+  </div>
+
+  <!-- FIR -->
+  <div class="dash-panel" id="panel-fir">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <span style="font-weight:600;color:var(--muted);font-size:14px;">Your FIR reports</span>
+      <a href="/fir.html" class="btn-primary small" style="padding:8px 16px;font-size:13px;">+ File FIR</a>
+    </div>
+    <div id="myFirList"><div class="loading-state">Loading…</div></div>
+  </div>
+
+  <!-- DEVICES -->
+  <div class="dash-panel" id="panel-devices">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <span style="font-weight:600;color:var(--muted);font-size:14px;">Devices you've blocked by IMEI</span>
+      <a href="/devices.html" class="btn-primary small" style="padding:8px 16px;font-size:13px;">+ Block Device</a>
+    </div>
+    <div id="myDeviceList"><div class="loading-state">Loading…</div></div>
+  </div>
+</div>
+
+<footer class="footer" style="margin-top:40px;">
+  <div class="footer-bottom" style="max-width:1000px;margin:0 auto;">FoundIt — Campus Lost &amp; Found</div>
+</footer>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+let currentTab = 'lost';
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.dash-tab').forEach((t,i) => {
+    t.classList.toggle('active', ['lost','found','matches','fir','devices'][i] === tab);
+  });
+  document.querySelectorAll('.dash-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  loadTab(tab);
+}
+
+async function loadTab(tab) {
+  if (tab === 'lost')    return loadMyLost();
+  if (tab === 'found')   return loadMyFound();
+  if (tab === 'matches') return loadMyMatches();
+  if (tab === 'fir')     return loadMyFir();
+  if (tab === 'devices') return loadMyDevices();
+}
+
+// ── LOST ──────────────────────────────────────────────────────────
+async function loadMyLost() {
+  const el = document.getElementById('myLostList');
+  const d = await api.get('/api/lost/my');
+  if (!d.success || !d.items.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>No lost items posted yet.</p></div>`; return;
+  }
+  el.innerHTML = d.items.map(item => `
+    <div class="form-card" style="margin-bottom:16px;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div>
+          <div style="font-family:var(--font-head);font-weight:700;font-size:16px;margin-bottom:4px;">${item.title}</div>
+          <div style="font-size:13px;color:var(--muted);">📍 ${item.locationLost} &nbsp;|&nbsp; 📅 ${fmtDate(item.dateLost)}</div>
+          <div style="margin-top:8px;"><span class="badge badge-${item.status==='active'?'active':'closed'}">${item.status}</span></div>
+          <div style="margin-top:8px;font-size:12px;color:var(--muted);">ID: <code style="background:var(--cream);padding:2px 6px;border-radius:4px;">${item._id}</code></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="viewMatches('${item._id}')" class="btn-outline" style="padding:7px 14px;font-size:13px;">View Matches</button>
+          <button onclick="markStatus('lost','${item._id}','found')" class="btn-ghost" style="font-size:13px;">Mark Found</button>
+          <button onclick="deleteItem('lost','${item._id}')" class="btn-danger">Delete</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ── FOUND ─────────────────────────────────────────────────────────
+async function loadMyFound() {
+  const el = document.getElementById('myFoundList');
+  const d = await api.get('/api/found/my');
+  if (!d.success || !d.items.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>No found items posted yet.</p></div>`; return;
+  }
+  el.innerHTML = d.items.map(item => `
+    <div class="form-card" style="margin-bottom:16px;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div>
+          <div style="font-family:var(--font-head);font-weight:700;font-size:16px;margin-bottom:4px;">${item.title}</div>
+          <div style="font-size:13px;color:var(--muted);">📍 ${item.locationFound} &nbsp;|&nbsp; 📅 ${fmtDate(item.dateFound)}</div>
+          <div style="margin-top:8px;"><span class="badge badge-${item.status==='available'?'found':'closed'}">${item.status}</span></div>
+          <div style="margin-top:8px;font-size:12px;color:var(--muted);">ID: <code style="background:var(--cream);padding:2px 6px;border-radius:4px;">${item._id}</code></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="markStatus('found','${item._id}','claimed')" class="btn-ghost" style="font-size:13px;">Mark Claimed</button>
+          <button onclick="deleteItem('found','${item._id}')" class="btn-danger">Delete</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ── MATCHES ───────────────────────────────────────────────────────
+async function loadMyMatches() {
+  const el = document.getElementById('myMatchList');
+  const d = await api.get('/api/matches/my');
+  if (!d.success || !d.matches.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔗</div><p>No match requests yet.</p></div>`; return;
+  }
+  el.innerHTML = d.matches.map(m => `
+    <div class="form-card" style="margin-bottom:16px;padding:20px;">
+      <div style="font-family:var(--font-head);font-weight:700;margin-bottom:8px;">Match Request</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:4px;">Lost: <strong style="color:var(--ink)">${m.lostItem?.title || '—'}</strong></div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:8px;">Found: <strong style="color:var(--ink)">${m.foundItem?.title || '—'}</strong></div>
+      <span class="badge badge-${m.status==='confirmed'?'found':m.status==='rejected'?'lost':'active'}">${m.status}</span>
+    </div>`).join('');
+}
+
+// ── FIR ───────────────────────────────────────────────────────────
+async function loadMyFir() {
+  const el = document.getElementById('myFirList');
+  const d = await api.get('/api/fir/my');
+  if (!d.success || !d.reports.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>No FIR reports filed.</p></div>`; return;
+  }
+  el.innerHTML = d.reports.map(r => `
+    <div class="form-card" style="margin-bottom:16px;padding:20px;">
+      <div style="font-family:var(--font-head);font-weight:700;margin-bottom:6px;">${r.lostItem?.title || 'General Report'}</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:4px;">${r.description.slice(0,120)}…</div>
+      <div style="font-size:13px;margin-top:8px;">
+        ${r.policeStation ? `🏢 ${r.policeStation} &nbsp;|&nbsp;` : ''}
+        ${r.firNumber ? `FIR# ${r.firNumber} &nbsp;|&nbsp;` : ''}
+        <span class="badge badge-${r.status==='filed'?'found':'active'}">${r.status}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ── DEVICES ───────────────────────────────────────────────────────
+async function loadMyDevices() {
+  const el = document.getElementById('myDeviceList');
+  const d = await api.get('/api/devices/my');
+  if (!d.success || !d.devices.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📵</div><p>No devices blocked.</p></div>`; return;
+  }
+  el.innerHTML = d.devices.map(dev => `
+    <div class="form-card" style="margin-bottom:16px;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div>
+          <div style="font-family:var(--font-head);font-weight:700;margin-bottom:4px;">${dev.brand || ''} ${dev.model || dev.deviceType}</div>
+          ${dev.imeiNumber ? `<div style="font-size:13px;color:var(--muted);">IMEI: ${dev.imeiNumber}</div>` : ''}
+          <span class="badge badge-${dev.status==='blocked'?'lost':'found'}" style="margin-top:8px;">${dev.status}</span>
+        </div>
+        ${dev.status === 'blocked' ? `<button onclick="recoverDevice('${dev._id}')" class="btn-outline" style="padding:7px 14px;font-size:13px;">Mark Recovered</button>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────
+async function viewMatches(lostId) {
+  const d = await api.get(`/api/matches/lost/${lostId}`);
+  if (!d.success) return alert('Could not load matches.');
+  if (!d.matches.length) return alert('No match requests for this item yet.');
+  const info = d.matches.map(m =>
+    `From: ${m.requestedBy?.name} (${m.requestedBy?.rollNumber||'—'})\nPhone: ${m.requestedBy?.phone||'—'}\nFound at: ${m.foundItem?.locationFound||'—'}\nStatus: ${m.status}\nMessage: ${m.message||'—'}`
+  ).join('\n\n---\n\n');
+  alert(info);
+}
+
+async function markStatus(type, id, status) {
+  if (!confirm(`Mark this as "${status}"?`)) return;
+  const res = await api.patch(`/api/${type}/${id}/status`, { status });
+  showAlert(res.message, res.success ? 'success' : 'error');
+  if (res.success) loadTab(type);
+}
+
+async function deleteItem(type, id) {
+  if (!confirm('Delete this post? This cannot be undone.')) return;
+  const res = await api.delete(`/api/${type}/${id}`);
+  showAlert(res.message, res.success ? 'success' : 'error');
+  if (res.success) loadTab(type);
+}
+
+async function recoverDevice(id) {
+  if (!confirm('Mark this device as recovered?')) return;
+  const res = await api.patch(`/api/devices/${id}/recover`, {});
+  showAlert(res.message, res.success ? 'success' : 'error');
+  if (res.success) loadMyDevices();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+window.addEventListener('load', async () => {
+  // Wait for auth to resolve
+  await new Promise(r => setTimeout(r, 300));
+  if (!requireAuth()) return;
+  if (window.__user) {
+    document.getElementById('dashTitle').textContent = `Welcome, ${window.__user.name.split(' ')[0]}`;
+  }
+  loadMyLost();
+});
+</script>
+</body>
+</html>

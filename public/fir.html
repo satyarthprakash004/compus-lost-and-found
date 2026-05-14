@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FIR Report — FoundIt</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="/" class="logo">Found<span>It</span></a>
+    <div class="nav-links">
+      <a href="/#browse-lost">Lost Items</a>
+      <a href="/#browse-found">Found Items</a>
+      <a href="/devices.html">IMEI Block</a>
+      <a href="/fir.html" class="active">FIR Report</a>
+    </div>
+    <div class="nav-actions">
+      <div id="authButtons"><a href="/login.html" class="btn-ghost">Login</a><a href="/register.html" class="btn-primary">Join</a></div>
+      <div id="userMenu" class="user-menu hidden">
+        <button class="avatar-btn" id="avatarBtn"><span id="avatarInitial">U</span></button>
+        <div class="dropdown" id="dropdown"><a href="/dashboard.html">My Dashboard</a><a href="#" id="logoutBtn">Logout</a></div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="page-header-inner">
+    <h1>📋 FIR Report</h1>
+    <p>If your item was stolen or still missing after a long time, file an FIR at your nearest police station. Track your report here.</p>
+  </div>
+</div>
+
+<div class="tool-page">
+  <div id="alertBox" class="alert hidden"></div>
+
+  <!-- INFO BOX -->
+  <div class="check-box" style="margin-bottom:28px;">
+    <h3>📌 How to file an FIR</h3>
+    <ol style="font-size:14px;color:var(--muted);line-height:2;padding-left:20px;margin-top:8px;">
+      <li>Visit your nearest police station (or local campus security).</li>
+      <li>Carry your college ID and describe the item.</li>
+      <li>Get a copy of the FIR with the FIR number.</li>
+      <li>Come back here and update your report with the FIR number.</li>
+    </ol>
+  </div>
+
+  <!-- FILE FIR FORM -->
+  <div class="form-card">
+    <h2>File a New FIR Report</h2>
+    <div class="form-group">
+      <label>Lost Item ID <span style="color:var(--muted);font-weight:400">(optional — copy from dashboard)</span></label>
+      <input type="text" id="lostItemId" placeholder="Paste the MongoDB ObjectId of your lost item"/>
+    </div>
+    <div class="form-group">
+      <label>Description of Incident *</label>
+      <textarea id="description" style="min-height:120px;" placeholder="Describe what was stolen or lost, when and where it happened, any suspects…"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Police Station</label>
+        <input type="text" id="policeStation" placeholder="e.g. Civil Lines Police Station"/>
+      </div>
+      <div class="form-group">
+        <label>FIR Number <span style="color:var(--muted);font-weight:400">(if already filed)</span></label>
+        <input type="text" id="firNumber" placeholder="e.g. FIR/2024/1234"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;">
+      <button class="btn-primary" id="firBtn" onclick="fileFir()">Save FIR Report</button>
+      <a href="/dashboard.html" class="btn-outline">View My Reports</a>
+    </div>
+  </div>
+
+  <!-- MY FIR LIST -->
+  <div style="margin-top:40px;" id="firSection">
+    <h2 style="font-family:var(--font-head);font-size:22px;font-weight:700;margin-bottom:20px;">Your FIR Reports</h2>
+    <div id="firList"><div class="loading-state">Loading…</div></div>
+  </div>
+</div>
+
+<footer class="footer" style="margin-top:40px;">
+  <div class="footer-bottom" style="max-width:800px;margin:0 auto;">FoundIt — Campus Lost &amp; Found</div>
+</footer>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+async function fileFir() {
+  if (!requireAuth()) return;
+  const btn = document.getElementById('firBtn');
+  const body = {
+    lostItemId:    document.getElementById('lostItemId').value.trim() || undefined,
+    description:   document.getElementById('description').value.trim(),
+    policeStation: document.getElementById('policeStation').value.trim(),
+    firNumber:     document.getElementById('firNumber').value.trim(),
+  };
+  if (!body.description) return showAlert('Description is required.', 'error');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  const res = await api.post('/api/fir', body);
+  showAlert(res.message, res.success ? 'success' : 'error');
+  if (res.success) loadMyFir();
+  btn.textContent = 'Save FIR Report'; btn.disabled = false;
+}
+
+async function loadMyFir() {
+  const el = document.getElementById('firList');
+  if (!window.__user) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔒</div><p><a href="/login.html" style="color:var(--accent)">Login</a> to see your FIR reports.</p></div>`; return; }
+  const d = await api.get('/api/fir/my');
+  if (!d.success || !d.reports.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>No FIR reports yet.</p></div>`; return;
+  }
+  el.innerHTML = d.reports.map(r => `
+    <div class="form-card" style="margin-bottom:16px;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div>
+          <div style="font-family:var(--font-head);font-weight:700;margin-bottom:6px;">${r.lostItem?.title || 'General Report'}</div>
+          <div style="font-size:14px;color:var(--muted);margin-bottom:8px;">${r.description.slice(0,160)}${r.description.length>160?'…':''}</div>
+          <div style="font-size:13px;display:flex;gap:12px;flex-wrap:wrap;">
+            ${r.policeStation ? `<span>🏢 ${r.policeStation}</span>` : ''}
+            ${r.firNumber ? `<span>📄 FIR# <strong>${r.firNumber}</strong></span>` : '<span style="color:var(--muted)">FIR number not added yet</span>'}
+            <span>📅 ${fmtDate(r.createdAt)}</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+          <span class="badge badge-${r.status==='filed'?'found':r.status==='resolved'?'closed':'active'}">${r.status}</span>
+          ${!r.firNumber ? `<button onclick="updateFir('${r._id}')" class="btn-outline" style="padding:6px 12px;font-size:12px;">Add FIR #</button>` : ''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function updateFir(id) {
+  const firNumber    = prompt('Enter your FIR number:');
+  const policeStation = prompt('Enter police station name:');
+  if (!firNumber) return;
+  const res = await api.patch(`/api/fir/${id}`, { firNumber, policeStation, status: 'filed' });
+  showAlert(res.message, res.success ? 'success' : 'error');
+  if (res.success) loadMyFir();
+}
+
+window.addEventListener('load', async () => {
+  await new Promise(r => setTimeout(r, 300));
+  loadMyFir();
+});
+</script>
+</body>
+</html>
