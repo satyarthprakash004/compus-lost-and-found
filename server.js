@@ -3,12 +3,85 @@ const cors         = require('cors');
 const path         = require('path');
 const cookieParser = require('cookie-parser');
 const connectDB    = require('./config/db');
+const helmet       = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const rateLimit    = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
 
+// Enable trust proxy for rate limiter and HTTPS detection behind reverse proxies
+app.set('trust proxy', 1);
+
 // ── Connect Database ───────────────────────────────────────────────
 connectDB();
+
+// ── Security Headers & Middlewares ─────────────────────────────────
+
+// HTTPS Redirection in production
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect(`https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
+
+// Helmet with customized Content Security Policy (CSP) for external CDNs (Leaflet, Nominatim, Google Fonts, Cloudinary)
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'", 
+          "unpkg.com", 
+          "'unsafe-inline'", 
+          "'unsafe-eval'"
+        ],
+        styleSrc: [
+          "'self'", 
+          "'unsafe-inline'", 
+          "unpkg.com", 
+          "fonts.googleapis.com"
+        ],
+        imgSrc: [
+          "'self'", 
+          "data:", 
+          "unpkg.com", 
+          "*.tile.openstreetmap.org", 
+          "res.cloudinary.com"
+        ],
+        connectSrc: [
+          "'self'", 
+          "nominatim.openstreetmap.org", 
+          "res.cloudinary.com"
+        ],
+        fontSrc: [
+          "'self'", 
+          "fonts.gstatic.com"
+        ],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+  })
+);
+
+// NoSQL Query Injection Prevention
+app.use(mongoSanitize());
+
+// Rate Limiter for API calls
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again after 15 minutes.'
+  }
+});
+app.use('/api/', apiLimiter);
 
 // ── Middleware ─────────────────────────────────────────────────────
 app.use(cors({ origin: true, credentials: true }));
@@ -35,6 +108,7 @@ app.use('/api/found',   require('./routes/found'));
 app.use('/api/matches', require('./routes/matches'));
 app.use('/api/fir',     require('./routes/fir'));
 app.use('/api/devices', require('./routes/devices'));
+app.use('/api/qr',      require('./routes/qr'));
 
 // ── Stats endpoint (for homepage) ─────────────────────────────────
 app.get('/api/stats', async (req, res) => {

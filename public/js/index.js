@@ -97,6 +97,8 @@ async function openModal(type, id) {
   const date   = isLost ? item.dateLost     : item.dateFound;
   const poster = item.postedBy;
 
+  const hasCoords = item.latitude && item.longitude;
+
   content.innerHTML = `
     <div class="modal-header">
       <h3>${item.title}</h3>
@@ -106,15 +108,20 @@ async function openModal(type, id) {
       ${item.imageUrl ? `<img src="${item.imageUrl}" class="modal-img" alt="${item.title}"/>` : ''}
       <div class="modal-meta">
         <div class="modal-meta-row"><strong>Type</strong><span class="badge ${isLost ? 'badge-lost' : 'badge-found'}">${isLost ? 'Lost' : 'Found'}</span></div>
-        <div class="modal-meta-row"><strong>Category</strong><span>${catEmoji[item.category]} ${item.category}</span></div>
+        <div class="modal-meta-row"><strong>Category</strong><span>${catEmoji[item.category] || '📦'} ${item.category}</span></div>
         <div class="modal-meta-row"><strong>Location</strong><span>📍 ${loc}</span></div>
         <div class="modal-meta-row"><strong>Date</strong><span>${fmtDate(date)}</span></div>
         ${isLost && item.reward ? `<div class="modal-meta-row"><strong>Reward</strong><span>🏆 ${item.reward}</span></div>` : ''}
         ${!isLost && item.currentlyAt ? `<div class="modal-meta-row"><strong>Currently At</strong><span>${item.currentlyAt}</span></div>` : ''}
-        <div class="modal-meta-row"><strong>Posted by</strong><span>${poster?.name} ${poster?.rollNumber ? '('+poster.rollNumber+')' : ''}</span></div>
+        ${item.handoverSpot ? `<div class="modal-meta-row"><strong>Safe Handover</strong><span style="color:var(--accent2);font-weight:600;">🔒 ${item.handoverSpot}</span></div>` : ''}
+        <div class="modal-meta-row"><strong>Posted by</strong><span>${poster?.name || 'Anonymous'} ${poster?.rollNumber ? '('+poster.rollNumber+')' : ''}</span></div>
         ${poster?.phone ? `<div class="modal-meta-row"><strong>Contact</strong><span>📞 ${poster.phone}</span></div>` : ''}
       </div>
       ${item.description ? `<p class="modal-desc">${item.description}</p>` : ''}
+      ${hasCoords ? `
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">📍 Map Location:</div>
+        <div id="modalMap" style="height: 220px; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 24px; z-index: 1;"></div>
+      ` : ''}
       <div class="modal-actions">
         ${window.__user
           ? `<button class="btn-primary" onclick="claimMatch('${type}','${id}')">
@@ -124,6 +131,18 @@ async function openModal(type, id) {
         <button class="btn-outline" onclick="closeModal()">Close</button>
       </div>
     </div>`;
+
+  if (hasCoords) {
+    setTimeout(() => {
+      const modalMap = L.map('modalMap').setView([item.latitude, item.longitude], 18);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(modalMap);
+      L.marker([item.latitude, item.longitude]).addTo(modalMap);
+      setTimeout(() => { modalMap.invalidateSize(); }, 200);
+    }, 100);
+  }
 }
 
 function closeModal() {

@@ -5,6 +5,89 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Report Found Item — FoundIt</title>
   <link rel="stylesheet" href="/css/style.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-geosearch@3.11.1/dist/geosearch.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet-geosearch@3.11.1/dist/geosearch.umd.js"></script>
+  <style>
+    /* Campus spot chips */
+    .campus-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; }
+    .chip {
+      padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 700;
+      background: var(--white); border: 1.5px solid var(--border);
+      color: var(--text-soft); cursor: pointer; transition: all .15s;
+      font-family: var(--font);
+    }
+    .chip:hover  { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+    .chip.active { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+
+    /* Search bar inside map */
+    .leaflet-control-geosearch .results { border-radius: 8px; }
+    .leaflet-control-geosearch form input {
+      font-family: var(--font); font-size: 14px;
+    }
+
+    /* Location search box above map */
+    .map-search-wrap {
+      position: relative; margin-bottom: 8px;
+    }
+    .map-search-input {
+      width: 100%; padding: 10px 14px 10px 36px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 500; outline: none;
+      font-family: var(--font); color: var(--text);
+      transition: border-color .15s;
+    }
+    .map-search-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+    .map-search-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      font-size: 16px; pointer-events: none;
+    }
+    .map-suggestions {
+      position: absolute; z-index: 9999; top: calc(100% + 2px); left: 0; right: 0;
+      background: var(--white); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); box-shadow: 0 6px 16px rgba(0,0,0,.1);
+      max-height: 220px; overflow-y: auto; display: none;
+    }
+    .map-suggestions.open { display: block; }
+    .map-suggestion-item {
+      padding: 10px 14px; font-size: 13px; font-weight: 500;
+      color: var(--text); cursor: pointer; transition: background .12s;
+      border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 8px;
+    }
+    .map-suggestion-item:last-child { border-bottom: none; }
+    .map-suggestion-item:hover { background: var(--blue-light); color: var(--blue); }
+    .map-suggestion-item span { color: var(--muted); font-size: 12px; display: block; }
+
+    /* Collapsible map container styles */
+    .toggle-map-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      background: var(--blue-light);
+      color: var(--blue);
+      border: 1.5px solid var(--blue-light);
+      padding: 8px 16px;
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s ease;
+      font-family: var(--font);
+    }
+    .toggle-map-btn:hover {
+      background: var(--blue);
+      color: var(--white);
+      border-color: var(--blue);
+      box-shadow: 0 4px 12px rgba(37,99,235,.2);
+    }
+    .toggle-map-btn.active {
+      background: var(--text);
+      color: var(--white);
+      border-color: var(--text);
+    }
+  </style>
 </head>
 <body>
 <nav class="navbar">
@@ -13,8 +96,7 @@
     <div class="nav-links">
       <a href="/#browse-lost">Lost Items</a>
       <a href="/#browse-found" class="active">Found Items</a>
-      <a href="/devices.html">IMEI Block</a>
-      <a href="/fir.html">FIR Report</a>
+      <a href="/scan.html">Scan QR</a>
     </div>
     <div class="nav-actions">
       <div id="authButtons"><a href="/login.html" class="btn-ghost">Login</a><a href="/register.html" class="btn-primary">Join</a></div>
@@ -29,7 +111,7 @@
 <div class="page-header">
   <div class="page-header-inner">
     <h1>I Found Something</h1>
-    <p>Post what you found so the owner can claim it. You're doing a great thing!</p>
+    <p>Post what you found so the owner can claim it. You're doing a great thing! 🙌</p>
   </div>
 </div>
 
@@ -46,12 +128,11 @@
         <label>Category *</label>
         <select id="category">
           <option value="">Select category</option>
-          <option value="gadget">📱 Gadget</option>
+          <option value="gadget">📱 Gadget (Phone, Laptop…)</option>
           <option value="document">📄 Document / ID Card</option>
           <option value="clothing">👕 Clothing</option>
           <option value="bag">🎒 Bag / Wallet</option>
           <option value="keys">🔑 Keys</option>
-          <option value="person">🧑 Missing Person</option>
           <option value="other">📦 Other</option>
         </select>
       </div>
@@ -60,21 +141,111 @@
         <input type="date" id="dateFound"/>
       </div>
     </div>
+
+    <!-- LOCATION SECTION -->
     <div class="form-group">
-      <label>Where did you find it? *</label>
-      <input type="text" id="locationFound" placeholder="e.g. Near the sports complex, Hostel B corridor…"/>
+      <label>Location Found *</label>
+      <input type="text" id="locationFound" placeholder="e.g. B Block, Cafeteria, Library 2nd floor…"/>
+
+      <!-- Campus Quick-Pick Spots -->
+      <div style="margin-top:10px;">
+        <div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">⚡ Quick Pick — Tap your campus spot:</div>
+        
+        <div style="font-size:11px;color:var(--text-soft);margin:10px 0 4px;font-weight:700;">🏫 Academic Blocks</div>
+        <div class="campus-chips">
+          <button type="button" class="chip" onclick="pickSpot(this,'Admin Block')">🏢 Admin Block</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'A Block')">🏫 A Block</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'B Block')">🏫 B Block</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'C Block')">🏫 C Block</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'D Block')">🏫 D Block</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'E Block')">🏫 E Block</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'F Block')">🏫 F Block</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Library')">📚 Library</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Auditorium')">🎭 Auditorium</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Lab / Workshop')">🔬 Lab</button>
+        </div>
+
+        <div style="font-size:11px;color:var(--text-soft);margin:10px 0 4px;font-weight:700;">🍽️ Cafeterias & Cafes</div>
+        <div class="campus-chips">
+          <button type="button" class="chip" onclick="pickSpot(this,'Central Cafeteria')">🍽️ Central Cafeteria</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Nishu\'s Cafe')">☕ Nishu's Cafe</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Cafe Coffee Day')">☕ CCD</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Amul Parlour')">🍦 Amul Parlour</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Big Bite')">🍔 Big Bite</button>
+        </div>
+
+        <div style="font-size:11px;color:var(--text-soft);margin:10px 0 4px;font-weight:700;">🏠 Boys' Hostels</div>
+        <div class="campus-chips">
+          <button type="button" class="chip" onclick="pickSpot(this,'C.V. Raman Hostel')">👦 C.V. Raman</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Aryabhatt Hostel')">👦 Aryabhatt</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Tagore Hostel')">👦 Tagore</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Vivekanand Hostel')">👦 Vivekanand</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Chandragupt Hostel')">👦 Chandragupt</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Chanakya Hostel')">👦 Chanakya</button>
+        </div>
+
+        <div style="font-size:11px;color:var(--text-soft);margin:10px 0 4px;font-weight:700;">🏠 Girls' Hostels</div>
+        <div class="campus-chips">
+          <button type="button" class="chip" onclick="pickSpot(this,'Saraswati Hostel')">👧 Saraswati</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Sarojini Hostel')">👧 Sarojini</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Gargi Hostel')">👧 Gargi</button>
+        </div>
+
+        <div style="font-size:11px;color:var(--text-soft);margin:10px 0 4px;font-weight:700;">⚽ Others</div>
+        <div class="campus-chips">
+          <button type="button" class="chip" onclick="pickSpot(this,'Main Gate')">🚪 Main Gate</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Sports Ground')">⚽ Sports Ground</button>
+          <button type="button" class="chip" onclick="pickSpot(this,'Parking Area')">🅿️ Parking</button>
+        </div>
+      </div>
+
+      <!-- Toggle Map Button -->
+      <div style="margin-top: 14px; margin-bottom: 8px;">
+        <button type="button" id="toggleMapBtn" class="toggle-map-btn">
+          🗺️ Choose/Pin on Map
+        </button>
+      </div>
+
+      <!-- Collapsible Map Container -->
+      <div id="mapContainer" style="display: none; border: 1.5px solid var(--border); border-radius: var(--radius); padding: 14px; background: var(--bg); margin-top: 12px; margin-bottom: 12px; transition: all 0.3s ease;">
+        <!-- Map Search Box -->
+        <div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🔍 Search landmark on map:</div>
+        <div class="map-search-wrap">
+          <span class="map-search-icon">🔍</span>
+          <input type="text" id="mapSearchInput" class="map-search-input" placeholder="Type a place name… (e.g. B Block, CV Raman)"/>
+          <div class="map-suggestions" id="mapSuggestions"></div>
+        </div>
+
+        <!-- Map -->
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600;">📍 Click directly on the map to drop a pin:</div>
+        <div id="map" style="height:280px;border-radius:var(--radius-sm);border:1.5px solid var(--border);z-index:1;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">💡 You can zoom and drag the map to refine the location pin.</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Keep Item Currently At *</label>
+      <input type="text" id="currentlyAt" placeholder="e.g. Main Security Gate Room, Library desk, with CV Raman warden…"/>
     </div>
     <div class="form-group">
-      <label>Where is it now? (optional)</label>
-      <input type="text" id="currentlyAt" placeholder="e.g. Kept with me in Room 204 Hostel B, Security office…"/>
+      <label>Preferred Safe Handover Spot (optional)</label>
+      <select id="handoverSpot">
+        <option value="">No Preference (Direct Handover)</option>
+        <option value="Main Security Gate Guard Room">🛡️ Main Security Gate Guard Room</option>
+        <option value="Library Circulation Counter">📚 Library Circulation Counter</option>
+        <option value="Admin Block Reception Desk">🏢 Admin Block Reception Desk</option>
+        <option value="Hostel A Reception Desk">🏠 Hostel A Reception Desk</option>
+        <option value="Hostel B Reception Desk">🏠 Hostel B Reception Desk</option>
+      </select>
+      <small style="color:var(--muted);font-size:12px;margin-top:4px;display:block;">Highly recommended for safety.</small>
     </div>
     <div class="form-group">
       <label>Description</label>
-      <textarea id="description" placeholder="Describe what you found — colour, brand, condition, contents…"></textarea>
+      <textarea id="description" placeholder="Describe where you found it, item color, brand, any unique details..."></textarea>
     </div>
     <div class="form-group">
-      <label>Contact Info (optional)</label>
-      <input type="text" id="contactInfo" placeholder="WhatsApp, email, or where to find you…"/>
+      <label>Extra Contact Info (optional)</label>
+      <input type="text" id="contactInfo" placeholder="WhatsApp number, email, hostel room…"/>
     </div>
     <div class="form-group">
       <label>Upload Photo (optional)</label>
@@ -97,6 +268,309 @@
 <script>
 document.getElementById('dateFound').valueAsDate = new Date();
 
+// ── College Center Coordinates ─────────────────────────────
+const COLLEGE_LAT = 28.75319999007572;
+const COLLEGE_LNG = 77.49708975658685;
+
+// Predefined KIET campus spots with accurate coordinates
+const CAMPUS_SPOTS = [
+  { name: 'Library', lat: 28.75340, lng: 77.49740, icon: '📚' },
+  { name: 'Central Cafeteria', lat: 28.75270, lng: 77.49720, icon: '🍽️' },
+  { name: 'Nishu\'s Cafe', lat: 28.75250, lng: 77.49750, icon: '☕' },
+  { name: 'Cafe Coffee Day', lat: 28.75290, lng: 77.49770, icon: '☕' },
+  { name: 'Amul Parlour', lat: 28.75300, lng: 77.49740, icon: '🍦' },
+  { name: 'Big Bite', lat: 28.75280, lng: 77.49700, icon: '🍔' },
+  { name: 'Main Gate', lat: 28.75300, lng: 77.49850, icon: '🚪' },
+  { name: 'Admin Block', lat: 28.75320, lng: 77.49709, icon: '🏢' },
+  { name: 'A Block', lat: 28.75330, lng: 77.49680, icon: '🏫' },
+  { name: 'B Block', lat: 28.75310, lng: 77.49660, icon: '🏫' },
+  { name: 'C Block', lat: 28.75290, lng: 77.49640, icon: '🏫' },
+  { name: 'D Block', lat: 28.75270, lng: 77.49620, icon: '🏫' },
+  { name: 'E Block', lat: 28.75250, lng: 77.49600, icon: '🏫' },
+  { name: 'F Block', lat: 28.75230, lng: 77.49580, icon: '🏫' },
+  { name: 'C.V. Raman Hostel', lat: 28.75420, lng: 77.49680, icon: '👦' },
+  { name: 'Aryabhatt Hostel', lat: 28.75440, lng: 77.49700, icon: '👦' },
+  { name: 'Tagore Hostel', lat: 28.75460, lng: 77.49660, icon: '👦' },
+  { name: 'Vivekanand Hostel', lat: 28.75400, lng: 77.49620, icon: '👦' },
+  { name: 'Chandragupt Hostel', lat: 28.75430, lng: 77.49600, icon: '👦' },
+  { name: 'Chanakya Hostel', lat: 28.75450, lng: 77.49580, icon: '👦' },
+  { name: 'Saraswati Hostel', lat: 28.75370, lng: 77.49770, icon: '👧' },
+  { name: 'Sarojini Hostel', lat: 28.75390, lng: 77.49790, icon: '👧' },
+  { name: 'Gargi Hostel', lat: 28.75410, lng: 77.49810, icon: '👧' },
+  { name: 'Sports Ground', lat: 28.75350, lng: 77.49580, icon: '⚽' },
+  { name: 'Auditorium', lat: 28.75300, lng: 77.49720, icon: '🎭' },
+  { name: 'Parking Area', lat: 28.75280, lng: 77.49800, icon: '🅿️' }
+];
+
+// Helper to calculate distance in meters using simple approximation
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // meters
+  const phi1 = lat1 * Math.PI/180;
+  const phi2 = lat2 * Math.PI/180;
+  const deltaPhi = (lat2-lat1) * Math.PI/180;
+  const deltaLambda = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// Find closest campus spot
+function findClosestSpot(lat, lng) {
+  let minDistance = Infinity;
+  let closest = null;
+  for (const spot of CAMPUS_SPOTS) {
+    const d = getDistance(lat, lng, spot.lat, spot.lng);
+    if (d < minDistance) {
+      minDistance = d;
+      closest = spot;
+    }
+  }
+  return { spot: closest, distance: minDistance };
+}
+
+// ── Collapsible Map Option Trigger ─────────────────────────
+function openMap() {
+  const toggleMapBtn = document.getElementById('toggleMapBtn');
+  const mapContainer = document.getElementById('mapContainer');
+  if (mapContainer.style.display === 'none') {
+    mapContainer.style.display = 'block';
+    toggleMapBtn.classList.add('active');
+    toggleMapBtn.innerHTML = '🗺️ Hide Map Option';
+    setTimeout(() => { map.invalidateSize(); }, 50);
+  }
+}
+
+document.getElementById('toggleMapBtn').addEventListener('click', () => {
+  const toggleMapBtn = document.getElementById('toggleMapBtn');
+  const mapContainer = document.getElementById('mapContainer');
+  const isHidden = mapContainer.style.display === 'none';
+  if (isHidden) {
+    mapContainer.style.display = 'block';
+    toggleMapBtn.classList.add('active');
+    toggleMapBtn.innerHTML = '🗺️ Hide Map Option';
+    setTimeout(() => { map.invalidateSize(); }, 50);
+  } else {
+    mapContainer.style.display = 'none';
+    toggleMapBtn.classList.remove('active');
+    toggleMapBtn.innerHTML = '🗺️ Choose/Pin on Map';
+  }
+});
+
+// ── Map Init ───────────────────────────────────────────────
+let selectedLatLng = null;
+const map = L.map('map').setView([COLLEGE_LAT, COLLEGE_LNG], 17);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+let marker = null;
+
+function setPin(lat, lng) {
+  const latlng = L.latLng(lat, lng);
+  selectedLatLng = latlng;
+  if (marker) {
+    marker.setLatLng(latlng);
+  } else {
+    marker = L.marker(latlng).addTo(map);
+  }
+}
+
+// ── 1. Campus Quick-Pick Chips ─────────────────────────────
+function pickSpot(btn, name) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  
+  const spot = CAMPUS_SPOTS.find(s => s.name === name);
+  if (spot) {
+    document.getElementById('locationFound').value = spot.name + ', KIET Campus';
+    setPin(spot.lat, spot.lng);
+    openMap();
+    map.setView([spot.lat, spot.lng], 18);
+  } else {
+    document.getElementById('locationFound').value = name + ', KIET Campus';
+    setPin(COLLEGE_LAT, COLLEGE_LNG);
+    openMap();
+    map.setView([COLLEGE_LAT, COLLEGE_LNG], 18);
+  }
+}
+
+// ── 2. Search Box (Nominatim + local match) ────────────────
+let searchTimeout = null;
+const searchInput   = document.getElementById('mapSearchInput');
+const suggestionsBox = document.getElementById('mapSuggestions');
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  const q = searchInput.value.trim();
+  if (q.length < 2) { suggestionsBox.innerHTML = ''; suggestionsBox.classList.remove('open'); return; }
+
+  // Filter local spots
+  const qLower = q.toLowerCase();
+  const localMatches = CAMPUS_SPOTS.filter(s => s.name.toLowerCase().includes(qLower));
+
+  searchTimeout = setTimeout(async () => {
+    try {
+      const viewbox = `${COLLEGE_LNG - 0.05},${COLLEGE_LAT + 0.05},${COLLEGE_LNG + 0.05},${COLLEGE_LAT - 0.05}`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6&viewbox=${viewbox}&bounded=0&accept-language=en`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      const results = await res.json();
+      renderCombinedSuggestions(localMatches, results);
+    } catch {
+      if (localMatches.length) {
+        renderCombinedSuggestions(localMatches, []);
+      } else {
+        suggestionsBox.classList.remove('open');
+      }
+    }
+  }, 300);
+});
+
+function renderCombinedSuggestions(localMatches, results) {
+  if (!localMatches.length && !results.length) {
+    suggestionsBox.innerHTML = `<div class="map-suggestion-item" style="color:var(--muted);cursor:default;">No results. Try a nearby landmark or road name.</div>`;
+    suggestionsBox.classList.add('open'); return;
+  }
+
+  let html = '';
+  
+  // Render local matches first
+  localMatches.forEach(spot => {
+    html += `<div class="map-suggestion-item" onclick="selectSuggestion(${spot.lat}, ${spot.lng}, '${spot.name}, KIET Campus')">
+      ⭐ <div><strong>${spot.name}</strong><span>KIET Campus Landmark</span></div>
+    </div>`;
+  });
+
+  // Render API results
+  results.forEach(r => {
+    const parts = r.display_name.split(',');
+    const main = parts.slice(0,2).join(',').trim();
+    const sub  = parts.slice(2,4).join(',').trim();
+    if (localMatches.some(m => m.name.toLowerCase() === main.toLowerCase())) return;
+    
+    html += `<div class="map-suggestion-item" onclick="selectSuggestion(${r.lat}, ${r.lon}, '${main.replace(/'/g,"\\'")}')">
+      📍 <div><strong>${main}</strong><span>${sub}</span></div>
+    </div>`;
+  });
+
+  suggestionsBox.innerHTML = html;
+  suggestionsBox.classList.add('open');
+}
+
+function selectSuggestion(lat, lng, name) {
+  setPin(parseFloat(lat), parseFloat(lng));
+  openMap();
+  map.setView([lat, lng], 18);
+  document.getElementById('locationFound').value = name;
+  searchInput.value = '';
+  suggestionsBox.classList.remove('open');
+  suggestionsBox.innerHTML = '';
+  
+  // Highlight chip if we match a chip name
+  document.querySelectorAll('.chip').forEach(c => {
+    if (name.toLowerCase().includes(c.textContent.replace(/[^\w\s]/g, '').trim().toLowerCase())) {
+      c.classList.add('active');
+    } else {
+      c.classList.remove('active');
+    }
+  });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.map-search-wrap')) suggestionsBox.classList.remove('open');
+});
+
+// ── 3. Click Map → Smart Snap & Geocode ────────────────────
+map.on('click', async (e) => {
+  const clickLat = e.latlng.lat;
+  const clickLng = e.latlng.lng;
+  
+  const { spot, distance } = findClosestSpot(clickLat, clickLng);
+  const locField = document.getElementById('locationFound');
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+
+  if (spot && distance <= 60) {
+    setPin(spot.lat, spot.lng);
+    locField.value = spot.name + ', KIET Campus';
+    document.querySelectorAll('.chip').forEach(c => {
+      if (c.textContent.includes(spot.name)) c.classList.add('active');
+    });
+  } else {
+    setPin(clickLat, clickLng);
+    locField.value = 'Getting address…';
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${clickLat}&lon=${clickLng}`,
+        { headers: { 'Accept-Language': 'en' } }
+      );
+      const data = await res.json();
+      const a = data.address || {};
+      const place = [
+        a.building || a.amenity || a.shop || a.office || a.leisure,
+        a.road || a.pedestrian || a.footway || a.path,
+        a.neighbourhood || a.suburb || a.village || a.town || a.city
+      ].filter(Boolean).join(', ');
+      
+      let addr = place || data.display_name.split(',').slice(0,3).join(', ');
+      const distToCenter = getDistance(clickLat, clickLng, COLLEGE_LAT, COLLEGE_LNG);
+      if (distToCenter <= 300 && !addr.toLowerCase().includes('kiet')) {
+        addr += ', KIET Campus';
+      }
+      locField.value = addr;
+    } catch {
+      locField.value = `${clickLat.toFixed(5)}, ${clickLng.toFixed(5)}`;
+    }
+  }
+});
+
+// ── 4. Typing Sync (Move Pin automatically on keywords) ────
+let syncTimeout = null;
+
+function syncInputToMap(text, isDescription = false) {
+  const textLower = text.toLowerCase();
+  const sortedSpots = [...CAMPUS_SPOTS].sort((a,b) => b.name.length - a.name.length);
+  
+  for (const spot of sortedSpots) {
+    if (textLower.includes(spot.name.toLowerCase())) {
+      const locField = document.getElementById('locationFound');
+      
+      if (isDescription) {
+        if (!locField.value.trim() || locField.value === 'Getting address…') {
+          locField.value = spot.name + ', KIET Campus';
+        }
+      } else {
+        document.querySelectorAll('.chip').forEach(c => {
+          if (c.textContent.includes(spot.name)) c.classList.add('active');
+          else c.classList.remove('active');
+        });
+      }
+      
+      setPin(spot.lat, spot.lng);
+      openMap();
+      map.setView([spot.lat, spot.lng], 18);
+      break;
+    }
+  }
+}
+
+document.getElementById('locationFound').addEventListener('input', (e) => {
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => {
+    syncInputToMap(e.target.value, false);
+  }, 500);
+});
+
+document.getElementById('description').addEventListener('input', (e) => {
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => {
+    syncInputToMap(e.target.value, true);
+  }, 600);
+});
+
+// ── Image Preview ──────────────────────────────────────────
 function previewImg(input) {
   const file = input.files[0];
   if (!file) return;
@@ -105,6 +579,7 @@ function previewImg(input) {
   preview.classList.remove('hidden');
 }
 
+// ── Submit ─────────────────────────────────────────────────
 async function handleSubmit() {
   if (!requireAuth()) return;
   const btn = document.getElementById('submitBtn');
@@ -116,12 +591,15 @@ async function handleSubmit() {
   fd.append('currentlyAt',   document.getElementById('currentlyAt').value.trim());
   fd.append('description',   document.getElementById('description').value.trim());
   fd.append('contactInfo',   document.getElementById('contactInfo').value.trim());
+  fd.append('handoverSpot',  document.getElementById('handoverSpot').value);
   const imgFile = document.getElementById('imageFile').files[0];
   if (imgFile) fd.append('image', imgFile);
-
+  if (selectedLatLng) {
+    fd.append('latitude',  selectedLatLng.lat);
+    fd.append('longitude', selectedLatLng.lng);
+  }
   if (!fd.get('title') || !fd.get('category') || !fd.get('locationFound') || !fd.get('dateFound'))
     return showAlert('Please fill in Title, Category, Location and Date.', 'error');
-
   btn.textContent = 'Posting…'; btn.disabled = true;
   const res = await api.postForm('/api/found', fd);
   if (res.success) {

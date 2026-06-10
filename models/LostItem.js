@@ -15,6 +15,9 @@ const lostItemSchema = new mongoose.Schema(
     imageUrl:     { type: String },
     contactInfo:  { type: String, trim: true }, // extra contact (optional)
     reward:       { type: String, trim: true },
+    latitude:     { type: Number },
+    longitude:    { type: Number },
+    handoverSpot: { type: String, trim: true },
     status: {
       type: String,
       enum: ['active', 'found', 'closed'],

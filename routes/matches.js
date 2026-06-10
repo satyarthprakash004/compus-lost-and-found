@@ -13,13 +13,21 @@ router.post('/', auth, async (req, res) => {
 
   try {
     const [lost, found] = await Promise.all([
-      LostItem.findById(lostItemId),
+      LostItem.findById(lostItemId).populate('postedBy'),
       FoundItem.findById(foundItemId),
     ]);
     if (!lost || !found)
       return res.status(404).json({ success: false, message: 'Item not found.' });
 
     const match = await Match.create({ lostItem: lostItemId, foundItem: foundItemId, requestedBy: req.user._id, message });
+
+    // Send notification to the owner of the lost item
+    if (lost.postedBy && lost.postedBy.email) {
+      const { sendNotification } = require('../config/notifier');
+      const alertMsg = `📢 FoundIt Alert! Someone found a match for your lost item "${lost.title}". Log in to check details: ${req.protocol}://${req.get('host')}/dashboard.html`;
+      sendNotification(lost.postedBy.email, `📢 FoundIt Alert! Match found for "${lost.title}"`, alertMsg).catch(err => console.error(err));
+    }
+
     res.status(201).json({ success: true, message: 'Match request sent!', match });
   } catch (err) {
     if (err.code === 11000)
@@ -52,7 +60,7 @@ router.patch('/:id', auth, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Status must be confirmed or rejected.' });
 
   try {
-    const match = await Match.findById(req.params.id).populate('lostItem');
+    const match = await Match.findById(req.params.id).populate('lostItem').populate('requestedBy');
     if (!match) return res.status(404).json({ success: false, message: 'Match not found.' });
     if (String(match.lostItem.postedBy) !== String(req.user._id))
       return res.status(403).json({ success: false, message: 'Only the lost item owner can do this.' });
@@ -66,6 +74,13 @@ router.patch('/:id', auth, async (req, res) => {
         LostItem.findByIdAndUpdate(match.lostItem._id,    { status: 'found'    }),
         FoundItem.findByIdAndUpdate(match.foundItem,       { status: 'claimed'  }),
       ]);
+    }
+
+    // Notify the finder of confirm/reject status
+    if (match.requestedBy && match.requestedBy.email) {
+      const { sendNotification } = require('../config/notifier');
+      const alertMsg = `🎉 FoundIt Alert! Your match request for "${match.lostItem.title}" has been ${status} by the owner.`;
+      sendNotification(match.requestedBy.email, `🎉 FoundIt Alert! Match request status update`, alertMsg).catch(err => console.error(err));
     }
 
     res.json({ success: true, message: `Match ${status}.` });

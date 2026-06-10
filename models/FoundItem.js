@@ -15,6 +15,9 @@ const foundItemSchema = new mongoose.Schema(
     imageUrl:      { type: String },
     contactInfo:   { type: String, trim: true },
     currentlyAt:   { type: String, trim: true }, // where item is kept now
+    latitude:      { type: Number },
+    longitude:     { type: Number },
+    handoverSpot:  { type: String, trim: true },
     status: {
       type: String,
       enum: ['available', 'claimed', 'closed'],

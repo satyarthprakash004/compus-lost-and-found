@@ -1,15 +1,8 @@
 const express  = require('express');
 const router   = express.Router();
-const multer   = require('multer');
-const path     = require('path');
 const LostItem = require('../models/LostItem');
 const auth     = require('../middleware/auth');
-
-const storage = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, 'uploads/'),
-  filename:    (_, file, cb) => cb(null, `lost_${Date.now()}${path.extname(file.originalname)}`),
-});
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+const { upload, handleCloudinaryUpload, deleteFile } = require('../middleware/upload');
 
 // GET /api/lost  — list with filter + pagination
 router.get('/', async (req, res) => {
@@ -58,8 +51,8 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/lost  — create
-router.post('/', auth, upload.single('image'), async (req, res) => {
-  const { title, description, category, locationLost, dateLost, contactInfo, reward } = req.body;
+router.post('/', auth, upload.single('image'), handleCloudinaryUpload, async (req, res) => {
+  const { title, description, category, locationLost, dateLost, contactInfo, reward, latitude, longitude, handoverSpot } = req.body;
   if (!title || !category || !locationLost || !dateLost)
     return res.status(400).json({ success: false, message: 'Title, category, location and date are required.' });
 
@@ -68,8 +61,11 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       postedBy: req.user._id,
       title, description, category, locationLost,
       dateLost: new Date(dateLost),
-      imageUrl: req.file ? `/uploads/${req.file.filename}` : undefined,
+      imageUrl: req.file ? req.file.url : undefined,
       contactInfo, reward,
+      latitude: latitude ? Number(latitude) : undefined,
+      longitude: longitude ? Number(longitude) : undefined,
+      handoverSpot: handoverSpot ? String(handoverSpot).trim() : undefined,
     });
     res.status(201).json({ success: true, message: 'Lost item posted!', item });
   } catch (err) {
@@ -106,6 +102,7 @@ router.delete('/:id', auth, async (req, res) => {
     if (String(item.postedBy) !== String(req.user._id))
       return res.status(403).json({ success: false, message: 'Not authorized.' });
 
+    await deleteFile(item.imageUrl);
     await item.deleteOne();
     res.json({ success: true, message: 'Deleted.' });
   } catch (err) {

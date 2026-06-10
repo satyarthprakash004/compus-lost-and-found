@@ -4,7 +4,10 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>FoundIt — Campus Lost & Found</title>
+  <meta name="description" content="Lost something on campus? Found something? Use FoundIt to connect with your campus community and get things back."/>
   <link rel="stylesheet" href="/css/style.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </head>
 <body>
 
@@ -15,8 +18,7 @@
     <div class="nav-links">
       <a href="/#browse-lost">Lost Items</a>
       <a href="/#browse-found">Found Items</a>
-      <a href="/devices.html">IMEI Block</a>
-      <a href="/fir.html">FIR Report</a>
+      <a href="/scan.html">Scan QR</a>
     </div>
     <div class="nav-actions">
       <div id="authButtons">
@@ -27,6 +29,8 @@
         <button class="avatar-btn" id="avatarBtn"><span id="avatarInitial">U</span></button>
         <div class="dropdown" id="dropdown">
           <a href="/dashboard.html">My Dashboard</a>
+          <a href="/post-lost.html">Report Lost</a>
+          <a href="/post-found.html">Report Found</a>
           <a href="#" id="logoutBtn">Logout</a>
         </div>
       </div>
@@ -36,41 +40,41 @@
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-bg-text">FOUNDIT</div>
-  <div class="hero-content">
-    <div class="hero-tag">Campus Lost &amp; Found Portal</div>
-    <h1>Lost something<br/><em>on campus?</em></h1>
-    <p>Post what you lost. Someone who found it will connect with you. Simple and fast, built for our campus.</p>
-    <div class="hero-cta">
-      <a href="/post-lost.html" class="btn-primary large">Report Lost Item</a>
-      <a href="/post-found.html" class="btn-outline large">I Found Something</a>
+  <div class="hero-inner">
+    <div class="hero-content">
+      <div class="hero-tag">🏫 Campus Lost &amp; Found Portal</div>
+      <h1>Lost something<br/><em>on campus?</em></h1>
+      <p>Post what you lost or found. Someone from your campus will connect with you. Simple, honest, built for students.</p>
+      <div class="hero-cta">
+        <a href="/post-lost.html" class="btn-primary large">📋 Report Lost Item</a>
+        <a href="/post-found.html" class="btn-outline large">🙋 I Found Something</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><span id="statLost">—</span><em>Items Lost</em></div>
+        <div class="stat"><span id="statFound">—</span><em>Items Found</em></div>
+        <div class="stat"><span id="statMatched">—</span><em>Reunited 🎉</em></div>
+      </div>
     </div>
-    <div class="hero-stats">
-      <div class="stat"><span id="statLost">—</span><em>Items Lost</em></div>
-      <div class="stat"><span id="statFound">—</span><em>Items Found</em></div>
-      <div class="stat"><span id="statMatched">—</span><em>Reunited</em></div>
+    <div class="hero-visual">
+      <div class="float-card" style="top:8%;left:10%;">📱 iPhone Lost<small>Library, 2nd Floor</small></div>
+      <div class="float-card" style="top:44%;right:0%;">🎒 Blue Bag Found<small>Canteen Area</small></div>
+      <div class="float-card" style="bottom:12%;left:5%;">🔑 Keys Found<small>Main Gate</small></div>
     </div>
-  </div>
-  <div class="hero-visual">
-    <div class="float-card" style="top:12%;left:4%;">📱 iPhone Lost<br/><small>Library, 2nd Floor</small></div>
-    <div class="float-card" style="top:52%;right:6%;animation-delay:.8s">🎒 Blue Bag Found<br/><small>Canteen Area</small></div>
-    <div class="float-card" style="bottom:18%;left:12%;animation-delay:1.4s">🔑 Keys Found<br/><small>Main Gate</small></div>
   </div>
 </section>
 
 <!-- SEARCH -->
 <section class="search-section">
   <div class="search-box">
-    <input type="text" id="globalSearch" placeholder="Search for lost or found items..." onkeydown="if(event.key==='Enter')handleSearch()"/>
+    <input type="text" id="globalSearch" placeholder="Search for lost or found items…" onkeydown="if(event.key==='Enter')handleSearch()"/>
     <select id="searchCategory">
       <option value="">All Categories</option>
-      <option value="gadget">Gadget</option>
-      <option value="document">Document</option>
-      <option value="clothing">Clothing</option>
-      <option value="bag">Bag</option>
-      <option value="keys">Keys</option>
-      <option value="person">Missing Person</option>
-      <option value="other">Other</option>
+      <option value="gadget">📱 Gadget</option>
+      <option value="document">📄 Document</option>
+      <option value="clothing">👕 Clothing</option>
+      <option value="bag">🎒 Bag</option>
+      <option value="keys">🔑 Keys</option>
+      <option value="other">📦 Other</option>
     </select>
     <button onclick="handleSearch()">Search</button>
   </div>
@@ -82,20 +86,20 @@
     <h2>Recently Lost</h2>
     <a href="/post-lost.html" class="btn-ghost small">+ Post Lost Item</a>
   </div>
-  <div class="item-grid" id="lostGrid"><div class="loading-state">Loading...</div></div>
+  <div class="item-grid" id="lostGrid"><div class="loading-state">Loading…</div></div>
   <div class="load-more-wrap">
     <button class="btn-outline" id="loadMoreLost" onclick="loadMoreLost()">Load More</button>
   </div>
 </section>
 
 <!-- FOUND ITEMS -->
-<section class="items-section alt" id="browse-found" style="padding:56px 24px;">
-  <div style="max-width:1100px;margin:0 auto;">
+<section class="items-section alt" id="browse-found">
+  <div style="max-width:1080px;margin:0 auto;">
     <div class="section-header">
       <h2>Recently Found</h2>
       <a href="/post-found.html" class="btn-ghost small">+ Post Found Item</a>
     </div>
-    <div class="item-grid" id="foundGrid"><div class="loading-state">Loading...</div></div>
+    <div class="item-grid" id="foundGrid"><div class="loading-state">Loading…</div></div>
     <div class="load-more-wrap">
       <button class="btn-outline" id="loadMoreFound" onclick="loadMoreFound()">Load More</button>
     </div>
@@ -106,10 +110,26 @@
 <section class="how-section">
   <h2>How It Works</h2>
   <div class="steps">
-    <div class="step"><div class="step-num">01</div><h3>Post Your Item</h3><p>Lost something? Post it with description and location. Found something? Post where and what you found.</p></div>
-    <div class="step"><div class="step-num">02</div><h3>Get Matched</h3><p>The community connects lost posts with found posts. Send a match request when you spot a match.</p></div>
-    <div class="step"><div class="step-num">03</div><h3>Verify &amp; Reunite</h3><p>The item owner confirms the match. Contact each other and get the item back!</p></div>
-    <div class="step"><div class="step-num">04</div><h3>Still Missing?</h3><p>File an FIR report or block your phone/laptop by IMEI number if it was stolen.</p></div>
+    <div class="step">
+      <div class="step-num">01</div>
+      <h3>Post Your Item</h3>
+      <p>Lost something? Post it with description, photo, and location. Found something? Post where and what you found.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h3>Get Matched</h3>
+      <p>Anyone who spots a match sends a match request. The owner gets notified instantly.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h3>Verify &amp; Reunite</h3>
+      <p>The owner confirms the match. Both parties connect and the item is returned safely.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <h3>QR Stickers</h3>
+      <p>Stick a QR tag on your belongings. If found, the finder scans it and reaches you directly.</p>
+    </div>
   </div>
 </section>
 
@@ -118,17 +138,20 @@
   <div class="footer-inner">
     <div class="footer-brand">
       <span class="logo">Found<span>It</span></span>
-      <p>Campus Lost &amp; Found Portal</p>
+      <p>Campus Lost &amp; Found Portal — built by students, for students.</p>
     </div>
     <div class="footer-links">
+      <h4>Quick Links</h4>
       <a href="/post-lost.html">Report Lost</a>
       <a href="/post-found.html">Report Found</a>
-      <a href="/devices.html">Block Device</a>
-      <a href="/fir.html">File FIR</a>
+      <a href="/scan.html">Scan QR</a>
       <a href="/dashboard.html">Dashboard</a>
     </div>
   </div>
-  <div class="footer-bottom">Built for campus. Made with care.</div>
+  <div class="footer-bottom">
+    <span>Built for campus. Made with care. 💙</span>
+    <span>FoundIt © 2025</span>
+  </div>
 </footer>
 
 <!-- MODAL -->
