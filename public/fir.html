@@ -142,7 +142,7 @@ async function updateFir(id) {
 }
 
 window.addEventListener('load', async () => {
-  await new Promise(r => setTimeout(r, 300));
+  if (window.authPromise) await window.authPromise;
   loadMyFir();
 });
 </script>

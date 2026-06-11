@@ -246,7 +246,7 @@ async function deleteItem(type, id) {
 
 // ── INIT ──────────────────────────────────────────────────────────
 window.addEventListener('load', async () => {
-  await new Promise(r => setTimeout(r, 300));
+  if (window.authPromise) await window.authPromise;
   if (!requireAuth()) return;
   if (window.__user) {
     document.getElementById('dashTitle').textContent = `Hey, ${window.__user.name.split(' ')[0]} 👋`;

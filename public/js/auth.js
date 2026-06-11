@@ -1,5 +1,5 @@
 // auth.js — runs on every page to manage login state UI
-(async () => {
+window.authPromise = (async () => {
   const data = await api.get('/api/auth/me').catch(() => null);
 
   const authButtons = document.getElementById('authButtons');
