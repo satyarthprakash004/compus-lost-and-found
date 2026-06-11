@@ -18,52 +18,20 @@ connectDB();
 
 // ── Security Headers & Middlewares ─────────────────────────────────
 
-// HTTPS Redirection in production
+// HTTPS Redirection in production (Disabled to prevent strict redirection issues)
+/*
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
     return res.redirect(`https://${req.headers.host}${req.url}`);
   }
   next();
 });
+*/
 
-// Helmet with customized Content Security Policy (CSP) for external CDNs (Leaflet, Nominatim, Google Fonts, Cloudinary)
+// Helmet with Content Security Policy disabled to prevent browser security warnings during local development
 app.use(
   helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'", 
-          "unpkg.com", 
-          "'unsafe-inline'", 
-          "'unsafe-eval'"
-        ],
-        styleSrc: [
-          "'self'", 
-          "'unsafe-inline'", 
-          "unpkg.com", 
-          "fonts.googleapis.com"
-        ],
-        imgSrc: [
-          "'self'", 
-          "data:", 
-          "unpkg.com", 
-          "*.tile.openstreetmap.org", 
-          "res.cloudinary.com"
-        ],
-        connectSrc: [
-          "'self'", 
-          "nominatim.openstreetmap.org", 
-          "res.cloudinary.com"
-        ],
-        fontSrc: [
-          "'self'", 
-          "fonts.gstatic.com"
-        ],
-        objectSrc: ["'none'"],
-        upgradeInsecureRequests: [],
-      },
-    },
+    contentSecurityPolicy: false,
   })
 );
 
