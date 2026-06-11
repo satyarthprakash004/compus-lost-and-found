@@ -152,23 +152,130 @@ document.getElementById('itemModal')?.addEventListener('click', (e) => {
   if (e.target === document.getElementById('itemModal')) closeModal();
 });
 
+function closeClaimModal() {
+  const modal = document.getElementById('claimModal');
+  if (modal) modal.classList.remove('open');
+  const alertBox = document.getElementById('claimAlertBox');
+  if (alertBox) { alertBox.className = 'alert hidden'; alertBox.textContent = ''; }
+  const messageInput = document.getElementById('claimMessage');
+  if (messageInput) messageInput.value = '';
+}
+
 async function claimMatch(type, id) {
   if (!requireAuth()) return;
 
-  if (type === 'found') {
-    // They found a found-item card and want to say their lost item matches
-    const lostId = prompt('Enter the Lost Item ID (from its post URL or dashboard):');
-    if (!lostId) return;
-    const msg = prompt('Add a message to help verify (optional):') || '';
-    const res = await api.post('/api/matches', { lostItemId: lostId, foundItemId: id, message: msg });
-    alert(res.message);
+  const modal = document.getElementById('claimModal');
+  const select = document.getElementById('claimItemSelect');
+  const label = document.getElementById('claimDropdownLabel');
+  const title = document.getElementById('claimModalTitle');
+  const submitBtn = document.getElementById('claimSubmitBtn');
+  const alertBox = document.getElementById('claimAlertBox');
+
+  // Clear dropdown options and reset state
+  select.innerHTML = '';
+  alertBox.className = 'alert hidden';
+  alertBox.textContent = '';
+
+  const isClaimingFound = type === 'found'; // true if matching a found item with a lost post
+
+  if (isClaimingFound) {
+    title.textContent = 'Claim Found Item';
+    label.textContent = 'Select your matching Lost Post *';
   } else {
-    // They're on a lost-item and want to say they found it
-    const foundId = prompt('Enter the Found Item ID (from its post URL or dashboard):');
-    if (!foundId) return;
-    const msg = prompt('Add a message to help verify (optional):') || '';
-    const res = await api.post('/api/matches', { lostItemId: id, foundItemId: foundId, message: msg });
-    alert(res.message);
+    title.textContent = 'Report Item Found';
+    label.textContent = 'Select your matching Found Post *';
+  }
+
+  // Show modal loading state
+  select.innerHTML = '<option value="">Loading your posts...</option>';
+  submitBtn.disabled = true;
+  modal.classList.add('open');
+
+  try {
+    // Fetch user items depending on the type
+    const route = isClaimingFound ? '/api/lost/my' : '/api/found/my';
+    const res = await api.get(route);
+    
+    if (!res.success || !res.items || res.items.length === 0) {
+      select.innerHTML = '<option value="">No items found</option>';
+      const helpMsg = isClaimingFound 
+        ? 'You have not reported any lost items yet. Please post a lost item first to request a match.'
+        : 'You have not reported any found items yet. Please post a found item first to connect it.';
+      
+      alertBox.className = 'alert error';
+      alertBox.textContent = helpMsg;
+      submitBtn.disabled = true;
+      return;
+    }
+
+    // Filter items (only show active lost or available found items)
+    const activeItems = res.items.filter(item => {
+      const activeStatus = isClaimingFound ? 'active' : 'available';
+      return item.status === activeStatus;
+    });
+
+    if (activeItems.length === 0) {
+      select.innerHTML = '<option value="">No active items available</option>';
+      const helpMsg = isClaimingFound
+        ? 'You have no active lost posts. (They might be already marked as found).'
+        : 'You have no active found posts. (They might be already marked as claimed).';
+      alertBox.className = 'alert error';
+      alertBox.textContent = helpMsg;
+      submitBtn.disabled = true;
+      return;
+    }
+
+    // Populate select dropdown
+    select.innerHTML = activeItems.map(item => `
+      <option value="${item._id}">${item.title} (📍 ${isClaimingFound ? item.locationLost : item.locationFound})</option>
+    `).join('');
+    submitBtn.disabled = false;
+
+    // Set submit button action
+    submitBtn.onclick = async () => {
+      const selectedId = select.value;
+      const message = document.getElementById('claimMessage').value.trim();
+
+      if (!selectedId) {
+        alertBox.className = 'alert error';
+        alertBox.textContent = 'Please select an item from the dropdown.';
+        return;
+      }
+
+      submitBtn.textContent = 'Submitting...';
+      submitBtn.disabled = true;
+
+      const lostItemId = isClaimingFound ? selectedId : id;
+      const foundItemId = isClaimingFound ? id : selectedId;
+
+      const response = await api.post('/api/matches', {
+        lostItemId,
+        foundItemId,
+        message
+      });
+
+      submitBtn.textContent = 'Submit Claim';
+      submitBtn.disabled = false;
+
+      if (response.success) {
+        alertBox.className = 'alert success';
+        alertBox.textContent = 'Match request sent successfully! Redirecting...';
+        setTimeout(() => {
+          closeClaimModal();
+          closeModal(); // close item details modal too
+        }, 1200);
+      } else {
+        alertBox.className = 'alert error';
+        alertBox.textContent = response.message || 'Failed to submit match request.';
+      }
+    };
+
+  } catch (err) {
+    console.error(err);
+    select.innerHTML = '<option value="">Error loading posts</option>';
+    alertBox.className = 'alert error';
+    alertBox.textContent = 'Server error loading your posts. Please try again.';
+    submitBtn.disabled = true;
   }
 }
 

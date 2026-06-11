@@ -43,6 +43,19 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
+// GET /api/matches/my  — matches I requested
+router.get('/my', auth, async (req, res) => {
+  try {
+    const matches = await Match.find({ requestedBy: req.user._id })
+      .populate('lostItem',  'title locationLost status')
+      .populate('foundItem', 'title locationFound status')
+      .sort({ createdAt: -1 });
+    res.json({ success: true, matches });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
 // GET /api/matches/lost/:lostItemId  — all match requests for a lost item (owner only)
 router.get('/lost/:lostItemId', auth, async (req, res) => {
   try {
@@ -117,17 +130,6 @@ router.patch('/:id', auth, async (req, res) => {
   }
 });
 
-// GET /api/matches/my  — matches I requested
-router.get('/my', auth, async (req, res) => {
-  try {
-    const matches = await Match.find({ requestedBy: req.user._id })
-      .populate('lostItem',  'title locationLost status')
-      .populate('foundItem', 'title locationFound status')
-      .sort({ createdAt: -1 });
-    res.json({ success: true, matches });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error.' });
-  }
-});
+
 
 module.exports = router;
