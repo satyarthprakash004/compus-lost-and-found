@@ -6,6 +6,9 @@ const connectDB    = require('./config/db');
 const helmet       = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
 const rateLimit    = require('express-rate-limit');
+const LostItem     = require('./models/LostItem');
+const FoundItem    = require('./models/FoundItem');
+const Match        = require('./models/Match');
 require('dotenv').config();
 
 const app = express();
@@ -81,9 +84,6 @@ app.use('/api/qr',      require('./routes/qr'));
 // ── Stats endpoint (for homepage) ─────────────────────────────────
 app.get('/api/stats', async (req, res) => {
   try {
-    const LostItem  = require('./models/LostItem');
-    const FoundItem = require('./models/FoundItem');
-    const Match     = require('./models/Match');
     const [lost, found, matched] = await Promise.all([
       LostItem.countDocuments(),
       FoundItem.countDocuments(),

@@ -25,6 +25,16 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
+// GET /api/devices/my
+router.get('/my', auth, async (req, res) => {
+  try {
+    const devices = await BlockedDevice.find({ reportedBy: req.user._id }).sort({ createdAt: -1 });
+    res.json({ success: true, devices });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
 // GET /api/devices/check/:imei  — public check
 router.get('/check/:imei', async (req, res) => {
   try {
@@ -60,16 +70,6 @@ router.get('/', async (req, res) => {
       .populate('reportedBy', 'name rollNumber')
       .sort({ createdAt: -1 })
       .select('-serialNumber'); // don't expose full serial publicly
-    res.json({ success: true, devices });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error.' });
-  }
-});
-
-// GET /api/devices/my
-router.get('/my', auth, async (req, res) => {
-  try {
-    const devices = await BlockedDevice.find({ reportedBy: req.user._id }).sort({ createdAt: -1 });
     res.json({ success: true, devices });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Server error.' });

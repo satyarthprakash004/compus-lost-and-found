@@ -4,7 +4,7 @@ const QRCode = require('qrcode');
 const crypto = require('crypto');
 const QrTag = require('../models/QrTag');
 const auth = require('../middleware/auth');
-const { sendNotification } = require('../config/notifier');
+const { sendNotification, getEmailHtmlTemplate } = require('../config/notifier');
 
 // Helper to generate a unique 8-character code
 function generateUniqueCode() {

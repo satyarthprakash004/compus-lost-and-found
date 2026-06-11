@@ -56,6 +56,9 @@ function getEmailHtmlTemplate(title, bodyHtml, ctaText, ctaUrl) {
   `.trim();
 }
 
+// Cached nodemailer transporter instance for connection pooling
+let transporter = null;
+
 /**
  * Sends an email notification.
  * If SMTP credentials are configured in .env, it sends a real email.
@@ -78,15 +81,17 @@ async function sendNotification(to, subject, text, html) {
 
   if (host && port && user && pass) {
     try {
-      const transporter = nodemailer.createTransport({
-        host: host,
-        port: parseInt(port),
-        secure: parseInt(port) === 465, // true for 465, false for other ports
-        auth: {
-          user: user,
-          pass: pass,
-        },
-      });
+      if (!transporter) {
+        transporter = nodemailer.createTransport({
+          host: host,
+          port: parseInt(port),
+          secure: parseInt(port) === 465, // true for 465, false for other ports
+          auth: {
+            user: user,
+            pass: pass,
+          },
+        });
+      }
 
       await transporter.sendMail({
         from: from,
