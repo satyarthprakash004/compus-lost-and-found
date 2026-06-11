@@ -32,6 +32,13 @@ router.post('/register', async (req, res) => {
     res.status(201).json({ success: true, message: 'Registered!', user });
   } catch (err) {
     console.error(err);
+    if (err.name === 'ValidationError') {
+      const message = Object.values(err.errors).map(val => val.message).join(', ');
+      return res.status(400).json({ success: false, message });
+    }
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: 'Email or Roll Number already registered.' });
+    }
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 });

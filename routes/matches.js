@@ -23,9 +23,16 @@ router.post('/', auth, async (req, res) => {
 
     // Send notification to the owner of the lost item
     if (lost.postedBy && lost.postedBy.email) {
-      const { sendNotification } = require('../config/notifier');
-      const alertMsg = `📢 FoundIt Alert! Someone found a match for your lost item "${lost.title}". Log in to check details: ${req.protocol}://${req.get('host')}/dashboard.html`;
-      sendNotification(lost.postedBy.email, `📢 FoundIt Alert! Match found for "${lost.title}"`, alertMsg).catch(err => console.error(err));
+      const { sendNotification, getEmailHtmlTemplate } = require('../config/notifier');
+      const ctaUrl = `${req.protocol}://${req.get('host')}/dashboard.html`;
+      const bodyHtml = `
+        <p>Hello <strong>${lost.postedBy.name}</strong>,</p>
+        <p>Great news! Someone has reported a potential match for your lost item <strong>"${lost.title}"</strong> on the FoundIt portal.</p>
+        <p>Please log in to your dashboard to view the details, contact the finder, and confirm if it matches your item.</p>
+      `;
+      const html = getEmailHtmlTemplate(`Match Found for "${lost.title}"`, bodyHtml, 'Go to Dashboard', ctaUrl);
+      const alertMsg = `📢 FoundIt Alert! Someone found a match for your lost item "${lost.title}". Log in to check details: ${ctaUrl}`;
+      sendNotification(lost.postedBy.email, `📢 Match found for "${lost.title}"`, alertMsg, html).catch(err => console.error(err));
     }
 
     res.status(201).json({ success: true, message: 'Match request sent!', match });
@@ -78,9 +85,30 @@ router.patch('/:id', auth, async (req, res) => {
 
     // Notify the finder of confirm/reject status
     if (match.requestedBy && match.requestedBy.email) {
-      const { sendNotification } = require('../config/notifier');
+      const { sendNotification, getEmailHtmlTemplate } = require('../config/notifier');
+      const ctaUrl = `${req.protocol}://${req.get('host')}/dashboard.html`;
+      
+      let bodyHtml = '';
+      let subject = '';
+      if (status === 'confirmed') {
+        subject = `🎉 Match Request Confirmed for "${match.lostItem.title}"`;
+        bodyHtml = `
+          <p>Hello <strong>${match.requestedBy.name}</strong>,</p>
+          <p>Fantastic news! The owner of the lost item <strong>"${match.lostItem.title}"</strong> has <strong>confirmed</strong> your match request!</p>
+          <p>Thank you for helping keep your campus community safe and helping return this item. You can view the details and contact options in your dashboard.</p>
+        `;
+      } else {
+        subject = `⚠️ Match Request Status Update for "${match.lostItem.title}"`;
+        bodyHtml = `
+          <p>Hello <strong>${match.requestedBy.name}</strong>,</p>
+          <p>The owner of the lost item <strong>"${match.lostItem.title}"</strong> reviewed your match request and has marked it as <strong>not a match</strong>.</p>
+          <p>Thank you for your effort anyway! Your post remains active in the portal for other potential matches.</p>
+        `;
+      }
+      
+      const html = getEmailHtmlTemplate(subject, bodyHtml, 'Go to Dashboard', ctaUrl);
       const alertMsg = `🎉 FoundIt Alert! Your match request for "${match.lostItem.title}" has been ${status} by the owner.`;
-      sendNotification(match.requestedBy.email, `🎉 FoundIt Alert! Match request status update`, alertMsg).catch(err => console.error(err));
+      sendNotification(match.requestedBy.email, subject, alertMsg, html).catch(err => console.error(err));
     }
 
     res.json({ success: true, message: `Match ${status}.` });

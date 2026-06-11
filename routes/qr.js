@@ -109,15 +109,27 @@ router.post('/scan/:code/message', async (req, res) => {
 
     const owner = tag.owner;
     
-    // Construct alert message
-    const alertMsg = `📢 FoundIt Alert! Someone scanned your sticker "${tag.label}".\n\nMessage: "${message}"\nFinder Contact: ${contactInfo || 'None provided'}`;
+    const subject = `📢 Someone scanned your sticker "${tag.label}"`;
+    const bodyHtml = `
+      <p>Hello <strong>${owner.name}</strong>,</p>
+      <p>Someone scanned your QR sticker labeled <strong>"${tag.label}"</strong> and has left you a message!</p>
+      <div style="background-color: #f1f5f9; border-left: 4px solid #2563eb; padding: 12px; margin: 16px 0; font-style: italic; border-radius: 4px; color: #1e293b; font-size: 15px;">
+        "${message}"
+      </div>
+      <p><strong>Finder's Contact Info:</strong> ${contactInfo ? `<code>${contactInfo}</code>` : '<em style="color:#94a3b8">None provided</em>'}</p>
+      <p>Please use the contact info above to get in touch with the finder to retrieve your item safely.</p>
+    `;
     
     // Send Notification to Owner
     if (owner.email) {
+      const html = getEmailHtmlTemplate(subject, bodyHtml);
+      const alertMsg = `📢 FoundIt Alert! Someone scanned your sticker "${tag.label}".\n\nMessage: "${message}"\nFinder Contact: ${contactInfo || 'None provided'}`;
+      
       await sendNotification(
         owner.email,
-        `📢 FoundIt Alert! Someone scanned your sticker "${tag.label}"`,
-        alertMsg
+        subject,
+        alertMsg,
+        html
       );
     }
 
