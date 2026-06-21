@@ -12,6 +12,7 @@ const cookieOpts = {
   httpOnly: true,
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'production', // required for HTTPS in production
 };
 
 // POST /api/auth/register
@@ -66,7 +67,11 @@ router.post('/login', async (req, res) => {
 
 // POST /api/auth/logout
 router.post('/logout', (req, res) => {
-  res.clearCookie('token');
+  res.clearCookie('token', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });
   res.json({ success: true, message: 'Logged out.' });
 });
 
