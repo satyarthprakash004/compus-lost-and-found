@@ -196,13 +196,20 @@ async function sendMessage() {
   btn.textContent = 'Sending...';
   btn.disabled = true;
 
-  const res = await api.post(`/api/qr/scan/${code}/message`, { message, contactInfo });
-  
-  if (res.success) {
-    document.getElementById('messageForm').classList.add('hidden');
-    document.getElementById('successBox').classList.remove('hidden');
-  } else {
-    showAlert(res.message || 'Failed to send message.', 'error');
+  try {
+    const res = await api.post(`/api/qr/scan/${code}/message`, { message, contactInfo });
+    
+    if (res.success) {
+      document.getElementById('messageForm').classList.add('hidden');
+      document.getElementById('successBox').classList.remove('hidden');
+    } else {
+      showAlert(res.message || 'Failed to send message.', 'error');
+      btn.textContent = 'Send Message to Owner';
+      btn.disabled = false;
+    }
+  } catch (error) {
+    console.error("Error sending message:", error);
+    showAlert('Failed to connect to the server. Please try again.', 'error');
     btn.textContent = 'Send Message to Owner';
     btn.disabled = false;
   }

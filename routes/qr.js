@@ -120,17 +120,17 @@ router.post('/scan/:code/message', async (req, res) => {
       <p>Please use the contact info above to get in touch with the finder to retrieve your item safely.</p>
     `;
     
-    // Send Notification to Owner
+    // Send Notification to Owner (asynchronously in the background)
     if (owner.email) {
       const html = getEmailHtmlTemplate(subject, bodyHtml);
       const alertMsg = `📢 FoundIt Alert! Someone scanned your sticker "${tag.label}".\n\nMessage: "${message}"\nFinder Contact: ${contactInfo || 'None provided'}`;
       
-      await sendNotification(
+      sendNotification(
         owner.email,
         subject,
         alertMsg,
         html
-      );
+      ).catch(err => console.error('❌ [Email] Error sending scan notification:', err));
     }
 
     res.json({ success: true, message: 'Message sent successfully! The owner has been notified.' });

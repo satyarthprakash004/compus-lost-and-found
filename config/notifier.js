@@ -90,6 +90,9 @@ async function sendNotification(to, subject, text, html) {
             user: user,
             pass: pass,
           },
+          connectionTimeout: 10000, // 10 seconds
+          greetingTimeout: 10000,
+          socketTimeout: 10000
         });
       }
 
