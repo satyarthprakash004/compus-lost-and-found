@@ -111,6 +111,15 @@
         </div>
         <button class="btn-primary full" id="sendBtn" onclick="sendMessage()">Send Message to Owner</button>
       </div>
+
+      <!-- Login Prompt Box (shown when visitor is not logged in) -->
+      <div id="loginPrompt" class="hidden" style="text-align:center;">
+        <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+        <h2 style="font-family:var(--font-head);font-weight:700;margin-bottom:8px;">Authentication Required</h2>
+        <p style="color:var(--muted);margin-bottom:24px;">You must be logged in to send a secure message to the owner. This helps prevent spam and ensures security.</p>
+        <button onclick="redirectToLogin()" class="btn-primary" style="margin-bottom: 12px; display: inline-block; width: 100%;">Login to Continue</button>
+        <a href="/" class="btn-secondary" style="display: inline-block; width: 100%; text-align: center; border: 1px solid var(--border); padding: 10px 0; border-radius: var(--radius-sm);">Go to Homepage</a>
+      </div>
       
       <!-- Success Box -->
       <div id="successBox" class="hidden" style="text-align:center;">
@@ -124,6 +133,7 @@
 </div>
 
 <script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
 <script>
 const params = new URLSearchParams(window.location.search);
 const code = params.get('code');
@@ -153,7 +163,15 @@ async function loadTag() {
   if (res.success) {
     document.getElementById('tagLabel').textContent = res.label;
     document.getElementById('ownerName').textContent = res.ownerName;
-    document.getElementById('messageForm').classList.remove('hidden');
+    
+    // Check authentication status
+    if (window.authPromise) await window.authPromise;
+    
+    if (window.__user) {
+      document.getElementById('messageForm').classList.remove('hidden');
+    } else {
+      document.getElementById('loginPrompt').classList.remove('hidden');
+    }
   } else {
     document.getElementById('errorBox').classList.remove('hidden');
   }
@@ -220,6 +238,10 @@ function showAlert(text, type) {
   alertBox.className = `alert ${type}`;
   alertBox.textContent = text;
   alertBox.classList.remove('hidden');
+}
+
+function redirectToLogin() {
+  window.location.href = `/login.html?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
 }
 
 loadTag();

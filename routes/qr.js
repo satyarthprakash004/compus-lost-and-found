@@ -94,8 +94,8 @@ router.get('/scan/:code', async (req, res) => {
   }
 });
 
-// POST /api/qr/scan/:code/message — Send an anonymous message to owner
-router.post('/scan/:code/message', async (req, res) => {
+// POST /api/qr/scan/:code/message — Send a secure message to owner (requires auth)
+router.post('/scan/:code/message', auth, async (req, res) => {
   const { message, contactInfo } = req.body;
   if (!message) {
     return res.status(400).json({ success: false, message: 'Message is required.' });
@@ -108,6 +108,7 @@ router.post('/scan/:code/message', async (req, res) => {
     }
 
     const owner = tag.owner;
+    const finder = req.user;
     
     const subject = `📢 Someone scanned your sticker "${tag.label}"`;
     const bodyHtml = `
@@ -116,14 +117,20 @@ router.post('/scan/:code/message', async (req, res) => {
       <div style="background-color: #f1f5f9; border-left: 4px solid #2563eb; padding: 12px; margin: 16px 0; font-style: italic; border-radius: 4px; color: #1e293b; font-size: 15px;">
         "${message}"
       </div>
-      <p><strong>Finder's Contact Info:</strong> ${contactInfo ? `<code>${contactInfo}</code>` : '<em style="color:#94a3b8">None provided</em>'}</p>
+      <p><strong>Finder Details (Verified Student):</strong></p>
+      <ul style="list-style-type: none; padding-left: 0;">
+        <li>👤 <strong>Name:</strong> ${finder.name}</li>
+        <li>✉️ <strong>Email:</strong> ${finder.email}</li>
+        <li>🎓 <strong>Roll Number:</strong> ${finder.rollNumber || 'N/A'}</li>
+        <li>📞 <strong>Extra Contact Info Provided:</strong> ${contactInfo ? `<code>${contactInfo}</code>` : '<em style="color:#94a3b8">None extra provided</em>'}</li>
+      </ul>
       <p>Please use the contact info above to get in touch with the finder to retrieve your item safely.</p>
     `;
     
     // Send Notification to Owner (asynchronously in the background)
     if (owner.email) {
       const html = getEmailHtmlTemplate(subject, bodyHtml);
-      const alertMsg = `📢 FoundIt Alert! Someone scanned your sticker "${tag.label}".\n\nMessage: "${message}"\nFinder Contact: ${contactInfo || 'None provided'}`;
+      const alertMsg = `📢 FoundIt Alert! Someone scanned your sticker "${tag.label}".\n\nFinder: ${finder.name} (${finder.rollNumber || 'N/A'})\nFinder Email: ${finder.email}\n\nMessage: "${message}"\nFinder Extra Contact: ${contactInfo || 'None provided'}`;
       
       sendNotification(
         owner.email,

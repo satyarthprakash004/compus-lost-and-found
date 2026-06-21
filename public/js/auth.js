@@ -37,10 +37,10 @@ window.authPromise = (async () => {
   });
 })();
 
-// Guard: redirect to login if not authenticated
+// Guard: redirect to login if not authenticated (preserving search params)
 function requireAuth() {
   if (!window.__user) {
-    window.location.href = '/login.html?next=' + encodeURIComponent(window.location.pathname);
+    window.location.href = '/login.html?next=' + encodeURIComponent(window.location.pathname + window.location.search);
     return false;
   }
   return true;
