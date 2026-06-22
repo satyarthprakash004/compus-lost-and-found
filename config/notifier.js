@@ -123,10 +123,16 @@ async function sendNotification(to, subject, text, html) {
     try {
       const info = await transporter.sendMail({
         from,
+        replyTo: process.env.EMAIL_USER || from,
         to,
         subject,
         text,
         html: finalHtml,
+        headers: {
+          'X-Priority': '3',           // Normal priority (not spammy)
+          'X-Mailer': 'FoundIt Campus Portal',
+          'Precedence': 'bulk',
+        },
       });
       console.log(`✅ [Email] Sent to ${to} | MessageId: ${info.messageId}`);
     } catch (err) {
