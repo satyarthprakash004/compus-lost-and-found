@@ -3,10 +3,6 @@ const nodemailer = require('nodemailer');
 
 /**
  * Generates a premium responsive HTML email wrapper.
- * @param {string} title - Main header of the message
- * @param {string} bodyHtml - Main content of the email (HTML formatted)
- * @param {string} [ctaText] - Action button text
- * @param {string} [ctaUrl] - Action button link
  */
 function getEmailHtmlTemplate(title, bodyHtml, ctaText, ctaUrl) {
   return `
@@ -47,7 +43,7 @@ function getEmailHtmlTemplate(title, bodyHtml, ctaText, ctaUrl) {
       ` : ''}
     </div>
     <div class="email-footer">
-      This is an automated notification from the FoundIt Campus Lost & Found Portal.<br>
+      This is an automated notification from the FoundIt Campus Lost &amp; Found Portal.<br>
       &copy; 2026 FoundIt. All rights reserved.
     </div>
   </div>
@@ -56,64 +52,100 @@ function getEmailHtmlTemplate(title, bodyHtml, ctaText, ctaUrl) {
   `.trim();
 }
 
-// Cached nodemailer transporter instance for connection pooling
-let transporter = null;
+/**
+ * Creates a fresh nodemailer transporter each time (no caching).
+ * Supports Gmail (recommended) and any custom SMTP.
+ *
+ * Gmail setup:
+ *   EMAIL_SERVICE=gmail
+ *   EMAIL_USER=you@gmail.com
+ *   EMAIL_PASS=your-16-char-app-password   <-- NOT your normal password!
+ *   EMAIL_FROM="FoundIt Campus" <you@gmail.com>
+ *
+ * Custom SMTP setup (e.g. Brevo, Mailgun, Hostinger):
+ *   EMAIL_HOST=smtp.brevo.com
+ *   EMAIL_PORT=587
+ *   EMAIL_USER=your-smtp-user
+ *   EMAIL_PASS=your-smtp-password
+ *   EMAIL_FROM="FoundIt Campus" <you@domain.com>
+ */
+function createTransporter() {
+  const service = process.env.EMAIL_SERVICE; // e.g. "gmail"
+  const host    = process.env.EMAIL_HOST;
+  const port    = process.env.EMAIL_PORT;
+  const user    = process.env.EMAIL_USER;
+  const pass    = process.env.EMAIL_PASS;
+
+  if (!user || !pass) return null;
+
+  // Gmail shortcut — no need for host/port when service=gmail
+  if (service && service.toLowerCase() === 'gmail') {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+    });
+  }
+
+  // Custom SMTP (Brevo, Mailgun, Hostinger, etc.)
+  if (host && port) {
+    const portNum = parseInt(port, 10);
+    return nodemailer.createTransport({
+      host,
+      port: portNum,
+      secure: portNum === 465,       // true only for SSL port 465
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false }, // avoids self-signed cert errors on shared hosts
+    });
+  }
+
+  return null;
+}
 
 /**
  * Sends an email notification.
- * If SMTP credentials are configured in .env, it sends a real email.
- * Otherwise, it simulates sending by logging a bright green message to the console.
- * 
- * @param {string} to - Recipient email address
- * @param {string} subject - Email subject line
- * @param {string} text - Plain text message body
- * @param {string} [html] - Optional HTML message body
+ *
+ * If EMAIL_USER + EMAIL_PASS (+ EMAIL_SERVICE or EMAIL_HOST + EMAIL_PORT) are
+ * set in env vars, it sends a real email.
+ * Otherwise it falls back to console simulation (demo mode).
+ *
+ * @param {string} to       - Recipient email address
+ * @param {string} subject  - Email subject line
+ * @param {string} text     - Plain-text fallback body
+ * @param {string} [html]   - HTML body (optional; auto-generated if omitted)
  */
 async function sendNotification(to, subject, text, html) {
-  const host = process.env.EMAIL_HOST;
-  const port = process.env.EMAIL_PORT;
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
-  const from = process.env.EMAIL_FROM || '"Campus Lost & Found" <noreply@campusfoundit.com>';
-
-  // Generate responsive HTML layout if not explicitly provided
+  const from = process.env.EMAIL_FROM || '"FoundIt Campus" <noreply@campusfoundit.com>';
   const finalHtml = html || getEmailHtmlTemplate(subject, text.replace(/\n/g, '<br>'));
 
-  if (host && port && user && pass) {
-    try {
-      if (!transporter) {
-        transporter = nodemailer.createTransport({
-          host: host,
-          port: parseInt(port),
-          secure: parseInt(port) === 465, // true for 465, false for other ports
-          auth: {
-            user: user,
-            pass: pass,
-          },
-          connectionTimeout: 10000, // 10 seconds
-          greetingTimeout: 10000,
-          socketTimeout: 10000
-        });
-      }
+  const transporter = createTransporter();
 
-      await transporter.sendMail({
-        from: from,
-        to: to,
-        subject: subject,
-        text: text,
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from,
+        to,
+        subject,
+        text,
         html: finalHtml,
       });
-      console.log(`✅ [Email] Real email alert successfully sent to ${to}`);
+      console.log(`✅ [Email] Sent to ${to} | MessageId: ${info.messageId}`);
     } catch (err) {
-      console.error(`❌ [Email] Failed to send real email:`, err.message);
+      // Log the full error so Render logs show exactly what went wrong
+      console.error(`❌ [Email] Failed to send to ${to}`);
+      console.error(`   Code   : ${err.code || 'N/A'}`);
+      console.error(`   Message: ${err.message}`);
+      if (err.response) console.error(`   SMTP   : ${err.response}`);
+      // Re-throw so callers can catch if needed
+      throw err;
     }
   } else {
-    // SIMULATION MODE (logs to console in bright green)
-    console.log('\n\x1b[32m%s\x1b[0m', `=====================================================`);
-    console.log('\x1b[32m%s\x1b[0m', `✉️ [SIMULATED EMAIL ALERTS - DEMO MODE]`);
-    console.log('\x1b[32m%s\x1b[0m', `To: ${to}`);
-    console.log('\x1b[32m%s\x1b[0m', `Subject: ${subject}`);
-    console.log('\x1b[32m%s\x1b[0m', `Message: "${text}"`);
+    // SIMULATION MODE — env vars not configured
+    console.log('\n\x1b[33m%s\x1b[0m', `⚠️  [Email] SIMULATION MODE — no SMTP credentials in env vars`);
+    console.log('\x1b[33m%s\x1b[0m', `   Set EMAIL_SERVICE=gmail + EMAIL_USER + EMAIL_PASS on Render`);
+    console.log('\x1b[32m%s\x1b[0m', `=====================================================`);
+    console.log('\x1b[32m%s\x1b[0m', `✉️  To      : ${to}`);
+    console.log('\x1b[32m%s\x1b[0m', `   Subject : ${subject}`);
+    console.log('\x1b[32m%s\x1b[0m', `   Message : ${text}`);
     console.log('\x1b[32m%s\x1b[0m', `=====================================================\n`);
   }
 }

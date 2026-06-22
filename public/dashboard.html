@@ -202,21 +202,84 @@ async function loadMyFound() {
 // ── MATCHES ───────────────────────────────────────────────────────
 async function loadMyMatches() {
   const el = document.getElementById('myMatchList');
-  const d = await api.get('/api/matches/my');
-  if (!d.success || !d.matches.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔗</div><p>No match requests yet. Browse items to send one!</p></div>`; return;
+  el.innerHTML = '<div class="loading-state">Loading…</div>';
+
+  // Fetch both sent and received matches in parallel
+  const [sentRes, receivedRes] = await Promise.all([
+    api.get('/api/matches/my'),
+    api.get('/api/matches/received'),
+  ]);
+
+  const sent = sentRes.success ? sentRes.matches : [];
+  const received = receivedRes.success ? receivedRes.matches : [];
+
+  if (!sent.length && !received.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔗</div><p>No match requests yet. Browse items to send one!</p></div>`;
+    return;
   }
-  el.innerHTML = d.matches.map(m => `
-    <div class="dash-item-card">
-      <div class="dash-item-info">
-        <div class="dash-item-title">Match Request</div>
-        <div class="dash-item-meta">Lost: <strong>${m.lostItem?.title || '—'}</strong></div>
-        <div class="dash-item-meta">Found: <strong>${m.foundItem?.title || '—'}</strong></div>
-        <div style="margin-top:8px;">
-          <span class="badge badge-${m.status==='confirmed'?'found':m.status==='rejected'?'lost':'active'}">${m.status}</span>
+
+  let html = '';
+
+  // ── RECEIVED MATCHES (from other users for your lost items)
+  if (received.length) {
+    html += `<div style="margin-bottom:24px;">
+      <h3 style="font-size:15px;font-weight:700;color:var(--accent2);margin-bottom:12px;">📥 Received Match Requests</h3>`;
+    html += received.map(m => `
+      <div class="dash-item-card" style="border-left:3px solid var(--accent2);">
+        <div class="dash-item-info">
+          <div class="dash-item-title">Match for: ${m.lostItem?.title || '—'}</div>
+          <div class="dash-item-meta">Found item: <strong>${m.foundItem?.title || '—'}</strong></div>
+          <div class="dash-item-meta">From: <strong>${m.requestedBy?.name || '—'}</strong> ${m.requestedBy?.rollNumber ? '(' + m.requestedBy.rollNumber + ')' : ''}</div>
+          ${m.requestedBy?.phone ? `<div class="dash-item-meta">📞 ${m.requestedBy.phone}</div>` : ''}
+          ${m.requestedBy?.department ? `<div class="dash-item-meta">🏛️ ${m.requestedBy.department}</div>` : ''}
+          ${m.message ? `<div style="margin-top:8px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text-soft);"><strong>💬 Message:</strong> ${m.message}</div>` : ''}
+          <div style="margin-top:8px;">
+            <span class="badge badge-${m.status==='confirmed'?'found':m.status==='rejected'?'lost':'active'}">${m.status}</span>
+          </div>
         </div>
-      </div>
-    </div>`).join('');
+        ${m.status === 'pending' ? `
+        <div class="dash-item-actions" style="flex-direction:column;gap:6px;">
+          <button onclick="confirmMatch('${m._id}')" class="btn-primary" style="padding:7px 16px;font-size:13px;">✅ Confirm</button>
+          <button onclick="rejectMatch('${m._id}')" class="btn-danger" style="padding:7px 16px;font-size:13px;">❌ Reject</button>
+        </div>` : ''}
+      </div>`).join('');
+    html += `</div>`;
+  }
+
+  // ── SENT MATCHES (requests you've made)
+  if (sent.length) {
+    html += `<div>
+      <h3 style="font-size:15px;font-weight:700;color:var(--primary);margin-bottom:12px;">📤 Match Requests You Sent</h3>`;
+    html += sent.map(m => `
+      <div class="dash-item-card">
+        <div class="dash-item-info">
+          <div class="dash-item-title">Match Request</div>
+          <div class="dash-item-meta">Lost: <strong>${m.lostItem?.title || '—'}</strong></div>
+          <div class="dash-item-meta">Found: <strong>${m.foundItem?.title || '—'}</strong></div>
+          ${m.message ? `<div style="margin-top:8px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text-soft);"><strong>💬 Your message:</strong> ${m.message}</div>` : ''}
+          <div style="margin-top:8px;">
+            <span class="badge badge-${m.status==='confirmed'?'found':m.status==='rejected'?'lost':'active'}">${m.status}</span>
+          </div>
+        </div>
+      </div>`).join('');
+    html += `</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+async function confirmMatch(matchId) {
+  if (!confirm('Confirm this match? The lost item will be marked as found.')) return;
+  const res = await api.patch(`/api/matches/${matchId}`, { status: 'confirmed' });
+  showAlert(res.message, res.success ? 'success' : 'error');
+  if (res.success) loadMyMatches();
+}
+
+async function rejectMatch(matchId) {
+  if (!confirm('Reject this match request?')) return;
+  const res = await api.patch(`/api/matches/${matchId}`, { status: 'rejected' });
+  showAlert(res.message, res.success ? 'success' : 'error');
+  if (res.success) loadMyMatches();
 }
 
 // ── ACTIONS ───────────────────────────────────────────────────────

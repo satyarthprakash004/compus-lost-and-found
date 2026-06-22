@@ -32,7 +32,8 @@ router.post('/', auth, async (req, res) => {
       `;
       const html = getEmailHtmlTemplate(`Match Found for "${lost.title}"`, bodyHtml, 'Go to Dashboard', ctaUrl);
       const alertMsg = `📢 FoundIt Alert! Someone found a match for your lost item "${lost.title}". Log in to check details: ${ctaUrl}`;
-      sendNotification(lost.postedBy.email, `📢 Match found for "${lost.title}"`, alertMsg, html).catch(err => console.error(err));
+      sendNotification(lost.postedBy.email, `📢 Match found for "${lost.title}"`, alertMsg, html)
+        .catch(err => console.error(`❌ [Email] Match notification failed:`, err.message));
     }
 
     res.status(201).json({ success: true, message: 'Match request sent!', match });
@@ -49,6 +50,24 @@ router.get('/my', auth, async (req, res) => {
     const matches = await Match.find({ requestedBy: req.user._id })
       .populate('lostItem',  'title locationLost status')
       .populate('foundItem', 'title locationFound status')
+      .sort({ createdAt: -1 });
+    res.json({ success: true, matches });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+// GET /api/matches/received  — match requests others sent for MY lost items
+router.get('/received', auth, async (req, res) => {
+  try {
+    // Find all lost items owned by the current user
+    const myLostItems = await LostItem.find({ postedBy: req.user._id }).select('_id');
+    const myLostIds = myLostItems.map(item => item._id);
+
+    const matches = await Match.find({ lostItem: { $in: myLostIds } })
+      .populate('lostItem',  'title locationLost status')
+      .populate('foundItem', 'title locationFound status')
+      .populate('requestedBy', 'name rollNumber phone department')
       .sort({ createdAt: -1 });
     res.json({ success: true, matches });
   } catch (err) {
@@ -121,7 +140,8 @@ router.patch('/:id', auth, async (req, res) => {
       
       const html = getEmailHtmlTemplate(subject, bodyHtml, 'Go to Dashboard', ctaUrl);
       const alertMsg = `🎉 FoundIt Alert! Your match request for "${match.lostItem.title}" has been ${status} by the owner.`;
-      sendNotification(match.requestedBy.email, subject, alertMsg, html).catch(err => console.error(err));
+      sendNotification(match.requestedBy.email, subject, alertMsg, html)
+        .catch(err => console.error(`❌ [Email] Status notification failed:`, err.message));
     }
 
     res.json({ success: true, message: `Match ${status}.` });
